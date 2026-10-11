@@ -7,9 +7,12 @@ import androidx.room.RoomDatabase
     entities = [
         WorkoutRoutine::class,
         WeightEntry::class,
-        WeightGoal::class
+        WeightGoal::class,
+        FoodItem::class,
+        FoodLogEntry::class,
+        StepEntry::class
     ],
-    version = 3,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -19,4 +22,10 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun weightEntryDao(): WeightEntryDao
 
     abstract fun weightGoalDao(): WeightGoalDao
+
+    abstract fun foodItemDao(): FoodItemDao
+
+    abstract fun foodLogEntryDao(): FoodLogEntryDao
+
+    abstract fun stepEntryDao(): StepEntryDao
 }

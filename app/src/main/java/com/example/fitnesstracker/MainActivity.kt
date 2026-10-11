@@ -33,14 +33,19 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.fitnesstracker.ui.theme.FitnessTrackerTheme
+import com.example.fitnesstracker.ui.theme.ForgeColors
+import androidx.activity.SystemBarStyle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.fitnesstracker.ui.steps.StepsScreen
+import com.example.fitnesstracker.ui.steps.StepsViewModel
 import com.example.fitnesstracker.ui.weight.WeightScreen
 import com.example.fitnesstracker.ui.weight.WeightViewModel
 
-private val AppBackground = Color(0xFF15171B)
-private val CardBackground = Color(0xFF23262C)
-private val AccentColor = Color(0xFFD0D4DC)
-private val SecondaryText = Color(0xFF9DA3AE)
+// Farben kommen zentral aus ui/theme/Theme.kt (ForgeColors)
+private val AppBackground = ForgeColors.Background
+private val CardBackground = ForgeColors.Card
+private val AccentColor = ForgeColors.Accent
+private val SecondaryText = ForgeColors.SecondaryText
 
 private data class AppDestination(
     val route: String,
@@ -57,7 +62,11 @@ private val destinations = listOf(
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // App ist immer dunkel: Statusleiste/Navigationsleiste mit hellen Icons
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+        )
 
         setContent {
             FitnessTrackerTheme {
@@ -106,7 +115,7 @@ fun FitnessTrackerApp() {
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = AccentColor,
                             selectedTextColor = Color.White,
-                            indicatorColor = Color(0xFF41454E),
+                            indicatorColor = ForgeColors.CardElevated,
                             unselectedIconColor = SecondaryText,
                             unselectedTextColor = SecondaryText
                         )
@@ -134,9 +143,10 @@ fun FitnessTrackerApp() {
             }
 
             composable("steps") {
-                PlaceholderScreen(
-                    title = "Schritte",
-                    description = "Verfolge deine täglichen Schritte und dein Schrittziel."
+                val stepsViewModel: StepsViewModel = viewModel()
+
+                StepsScreen(
+                    viewModel = stepsViewModel
                 )
             }
 
