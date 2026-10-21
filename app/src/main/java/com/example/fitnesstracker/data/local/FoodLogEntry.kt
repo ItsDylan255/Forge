@@ -37,6 +37,9 @@ data class FoodLogEntry(
     // Tageszuordnung
     val dateEpochDay: Long,
 
+    // Anzeige bei Eintrag per Portion, zum Beispiel "2 × Scheibe". null = nur Gramm.
+    val servingNote: String? = null,
+
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )

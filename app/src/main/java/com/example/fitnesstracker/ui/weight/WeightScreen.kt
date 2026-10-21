@@ -1,11 +1,15 @@
 package com.example.fitnesstracker.ui.weight
 
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DatePicker
@@ -30,14 +34,22 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.fitnesstracker.domain.weight.ChartRange
 import com.example.fitnesstracker.domain.weight.WeightCalculator
 import com.example.fitnesstracker.domain.weight.WeightChartData
+import com.example.fitnesstracker.domain.weight.WeightForecaster
 import com.example.fitnesstracker.domain.weight.WeightFormat
 import com.example.fitnesstracker.domain.weight.WeightGoalCalculator
 import com.example.fitnesstracker.domain.weight.WeightInputParser
 import com.example.fitnesstracker.domain.weight.WeightParseResult
 import com.example.fitnesstracker.domain.weight.toMeasurement
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 
 private const val MILLIS_PER_DAY = 24L * 60L * 60L * 1000L
+
+// Feste Höhe von allem außer dem Diagramm (Titel, Tabs, Boxen, Zeitraum-Leiste, Abstände).
+// Das Diagramm bekommt den Rest des Bildschirms, mindestens aber MIN_CHART_HEIGHT.
+private val CHART_OVERHEAD = 384.dp
+private val MIN_CHART_HEIGHT = 260.dp
 
 /** Ein ungewöhnlicher Wert (< 20 kg oder > 400 kg), der erst nach Rückfrage gespeichert wird. */
 private sealed interface PendingSave {
@@ -70,22 +82,27 @@ fun WeightScreen(
 
     // ---------- UI-Zustand ----------
     var selectedTab by rememberSaveable { mutableStateOf(0) } // 0 = Gewicht, 1 = Ziel
-    var chartRange by rememberSaveable { mutableStateOf(ChartRange.MONTH) }
+    var chartRange by rememberSaveable { mutableStateOf(ChartRange.WEEK) }
 
-    // Ziel bearbeiten
-    var isEditingGoal by rememberSaveable { mutableStateOf(false) }
+    // Zielgewicht bearbeiten
+    var showGoalDialog by rememberSaveable { mutableStateOf(false) }
     var goalInput by rememberSaveable { mutableStateOf("") }
     var goalError by rememberSaveable { mutableStateOf<String?>(null) }
     var showDeleteGoal by rememberSaveable { mutableStateOf(false) }
 
-    // Verlaufseintrag antippen / bearbeiten / löschen (über die Id, damit der Zustand überlebt)
+    // Zieldatum bearbeiten
+    var showGoalDatePicker by rememberSaveable { mutableStateOf(false) }
+    var showNeedGoalHint by rememberSaveable { mutableStateOf(false) }
+    var dateError by rememberSaveable { mutableStateOf<String?>(null) }
+
+    // Messpunkt im Diagramm antippen / bearbeiten / löschen (über die Id, damit der Zustand überlebt)
     var selectedEntryId by rememberSaveable { mutableStateOf<Long?>(null) }
     var isEditingEntry by rememberSaveable { mutableStateOf(false) }
     var entryEditInput by rememberSaveable { mutableStateOf("") }
     var entryEditError by rememberSaveable { mutableStateOf<String?>(null) }
     var entryToDeleteId by rememberSaveable { mutableStateOf<Long?>(null) }
 
-    // Gewicht eintragen (FAB)
+    // Gewicht eintragen (Plus-Button)
     var isAddingWeight by rememberSaveable { mutableStateOf(false) }
     var addDateEpochDay by rememberSaveable { mutableStateOf(todayEpochDay) }
     var addInput by rememberSaveable { mutableStateOf("") }
@@ -98,7 +115,6 @@ fun WeightScreen(
     val measurements = entries.map { it.toMeasurement() }
     val stats = WeightCalculator.statistics(measurements, todayEpochDay)
     val change90Days = WeightCalculator.changeOverDays(measurements, 90, todayEpochDay)
-    val historyItems = WeightCalculator.historyItems(measurements)
 
     val chartPoints = WeightChartData.pointsFor(measurements, chartRange, todayEpochDay)
 
@@ -110,6 +126,16 @@ fun WeightScreen(
                 startKg = currentGoal.startWeightKg
             )
         }
+    }
+
+    // Prognose: Trend der letzten 28 Tage, unabhängig davon, wann das Ziel angelegt wurde
+    val forecast = goal?.let { currentGoal ->
+        WeightForecaster.predictTrend(
+            targetKg = currentGoal.targetWeightKg,
+            startKg = currentGoal.startWeightKg,
+            measurements = measurements,
+            today = LocalDate.now().toEpochDay()
+        )
     }
 
     // ---------- Aktionen ----------
@@ -129,37 +155,45 @@ fun WeightScreen(
 
     fun commitGoal(weightKg: Double) {
         viewModel.saveGoal(weightKg)
-        isEditingGoal = false
+        showGoalDialog = false
         goalInput = ""
         goalError = null
     }
 
+    fun openGoalDialog() {
+        goalInput = goal?.targetWeightKg?.let { WeightFormat.forInput(it) } ?: ""
+        goalError = null
+        showGoalDialog = true
+    }
+
     // ---------- Layout ----------
-    Box(modifier = Modifier.fillMaxSize()) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val chartHeight = (maxHeight - CHART_OVERHEAD).coerceAtLeast(MIN_CHART_HEIGHT)
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
-                .padding(top = 24.dp)
+                .padding(top = 16.dp, bottom = 12.dp)
         ) {
             Text(
                 text = "Gewicht",
                 style = MaterialTheme.typography.headlineMedium
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             WeightTabs(
                 selected = selectedTab,
                 onSelect = { selectedTab = it }
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
+            // Oberer Bereich: nur dieser Teil wechselt mit dem Tab, das Diagramm bleibt stehen
             if (selectedTab == 0) {
-                StatsCard(
+                StatsGrid(
                     latest = stats.latest,
                     changeToPrevious = stats.changeToPrevious,
                     changeTotal = stats.changeSinceFirst,
@@ -167,98 +201,68 @@ fun WeightScreen(
                     change30 = stats.change30Days,
                     change90 = change90Days
                 )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                ChartSection(
-                    points = chartPoints,
-                    hasEnoughPoints = WeightChartData.hasEnoughPoints(chartPoints),
-                    targetKg = goal?.targetWeightKg,
-                    range = chartRange,
-                    onRangeChange = { chartRange = it }
-                )
-
-                Spacer(modifier = Modifier.height(28.dp))
-
-                SectionLabel("Gewichtsverlauf")
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                HistoryList(
-                    items = historyItems,
-                    onItemClick = { entryId ->
-                        isEditingEntry = false
-                        selectedEntryId = entryId
-                    }
-                )
             } else {
-                GoalCard(
-                    targetKg = goal?.targetWeightKg,
-                    startKg = goal?.startWeightKg,
+                GoalGrid(
+                    goal = goal,
+                    currentKg = stats.latest?.weightKg,
                     progress = goalProgress,
-                    isEditing = isEditingGoal,
-                    input = goalInput,
-                    error = goalError,
-                    onInputChange = {
-                        goalInput = it
-                        goalError = null
-                    },
-                    onStartEdit = {
-                        goalInput = goal?.targetWeightKg?.let { WeightFormat.forInput(it) } ?: ""
-                        goalError = null
-                        isEditingGoal = true
-                    },
-                    onSave = {
-                        checkInput(
-                            input = goalInput,
-                            onInvalid = { goalError = it },
-                            onValid = { kg, unusual ->
-                                if (unusual) pendingUnusual = PendingSave.Goal(kg)
-                                else commitGoal(kg)
-                            }
-                        )
-                    },
-                    onCancel = {
-                        isEditingGoal = false
-                        goalInput = ""
-                        goalError = null
-                    },
-                    onDelete = { showDeleteGoal = true }
+                    forecast = forecast,
+                    onTargetClick = { openGoalDialog() },
+                    onDateClick = {
+                        if (goal == null) showNeedGoalHint = true
+                        else showGoalDatePicker = true
+                    }
                 )
             }
 
-            // Platz, damit der Plus-Button den letzten Eintrag nicht verdeckt
-            Spacer(modifier = Modifier.height(96.dp))
-        }
+            Spacer(modifier = Modifier.height(12.dp))
 
-        // Plus-Button nur im Gewicht-Tab
-        if (selectedTab == 0) {
-            FloatingActionButton(
-                onClick = {
-                    addDateEpochDay = todayEpochDay
-                    addInput = entries.firstOrNull { it.dateEpochDay == todayEpochDay }
-                        ?.weightKg?.let { WeightFormat.forInput(it) } ?: ""
-                    addError = null
-                    isAddingWeight = true
-                },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(20.dp)
+            ChartCard(
+                points = chartPoints,
+                targetKg = goal?.targetWeightKg,
+                height = chartHeight,
+                onPointClick = { entryId ->
+                    isEditingEntry = false
+                    selectedEntryId = entryId
+                }
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "+",
-                    fontSize = 30.sp,
-                    fontWeight = FontWeight.Light
+                RangeSelector(
+                    selected = chartRange,
+                    onSelect = { chartRange = it },
+                    modifier = Modifier.weight(1f)
                 )
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                FloatingActionButton(
+                    onClick = {
+                        addDateEpochDay = todayEpochDay
+                        addInput = entries.firstOrNull { it.dateEpochDay == todayEpochDay }
+                            ?.weightKg?.let { WeightFormat.forInput(it) } ?: ""
+                        addError = null
+                        isAddingWeight = true
+                    },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ) {
+                    Text(
+                        text = "+",
+                        fontSize = 30.sp,
+                        fontWeight = FontWeight.Light
+                    )
+                }
             }
         }
     }
 
-    // ---------- Dialoge ----------
-
-    // Gewicht eintragen
+    // ---------- Dialoge: Gewicht eintragen ----------
     if (isAddingWeight) {
         AddWeightDialog(
             dateEpochDay = addDateEpochDay,
@@ -288,7 +292,6 @@ fun WeightScreen(
         )
     }
 
-    // Datum wählen
     if (showDatePicker) {
         val pickerState = rememberDatePickerState(
             initialSelectedDateMillis = addDateEpochDay * MILLIS_PER_DAY
@@ -314,7 +317,7 @@ fun WeightScreen(
         }
     }
 
-    // Verlaufseintrag: Bearbeiten / Löschen / Abbrechen
+    // ---------- Dialoge: Messpunkt (Bearbeiten / Löschen / Abbrechen) ----------
     val selectedEntry = entries.firstOrNull { it.id == selectedEntryId }
     val entryToDelete = entries.firstOrNull { it.id == entryToDeleteId }
 
@@ -361,7 +364,6 @@ fun WeightScreen(
         }
     }
 
-    // Sicherheitsfrage: Eintrag löschen
     if (entryToDelete != null) {
         ConfirmDeleteDialog(
             title = "Eintrag löschen?",
@@ -376,20 +378,114 @@ fun WeightScreen(
         )
     }
 
-    // Sicherheitsfrage: Ziel entfernen
+    // ---------- Dialoge: Zielgewicht ----------
+    if (showGoalDialog) {
+        GoalWeightDialog(
+            hasGoal = goal != null,
+            input = goalInput,
+            error = goalError,
+            onInputChange = {
+                goalInput = it
+                goalError = null
+            },
+            onSave = {
+                checkInput(
+                    input = goalInput,
+                    onInvalid = { goalError = it },
+                    onValid = { kg, unusual ->
+                        if (unusual) pendingUnusual = PendingSave.Goal(kg)
+                        else commitGoal(kg)
+                    }
+                )
+            },
+            onRemove = { showDeleteGoal = true },
+            onDismiss = {
+                showGoalDialog = false
+                goalError = null
+            }
+        )
+    }
+
     if (showDeleteGoal) {
         ConfirmDeleteDialog(
             title = "Ziel entfernen?",
-            message = "Dein Zielgewicht und der bisherige Fortschritt werden gelöscht.",
+            message = "Dein Zielgewicht, das Zieldatum und der bisherige Fortschritt werden gelöscht. " +
+                    "Deine Messungen bleiben erhalten.",
             onConfirm = {
                 viewModel.deleteGoal()
                 showDeleteGoal = false
+                showGoalDialog = false
             },
             onDismiss = { showDeleteGoal = false }
         )
     }
 
-    // Rückfrage bei ungewöhnlichen Werten
+    // ---------- Dialoge: Zieldatum ----------
+    if (showNeedGoalHint) {
+        InfoMessageDialog(
+            message = "Lege zuerst ein Zielgewicht fest. Danach kannst du ein Zieldatum wählen.",
+            confirmLabel = "Zielgewicht festlegen",
+            onConfirm = {
+                showNeedGoalHint = false
+                openGoalDialog()
+            },
+            onDismiss = { showNeedGoalHint = false }
+        )
+    }
+
+    if (showGoalDatePicker) {
+        val currentDate = goal?.targetDateEpochDay
+        val goalPickerState = rememberDatePickerState(
+            initialSelectedDateMillis = (currentDate ?: todayEpochDay) * MILLIS_PER_DAY
+        )
+
+        DatePickerDialog(
+            onDismissRequest = { showGoalDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val picked = goalPickerState.selectedDateMillis
+                            ?.let { Math.floorDiv(it, MILLIS_PER_DAY) }
+
+                        when {
+                            picked == null -> showGoalDatePicker = false
+                            picked <= todayEpochDay ->
+                                dateError = "Das Zieldatum muss in der Zukunft liegen."
+                            else -> {
+                                viewModel.saveGoalDate(picked)
+                                showGoalDatePicker = false
+                            }
+                        }
+                    }
+                ) { Text("OK") }
+            },
+            dismissButton = {
+                Row {
+                    if (currentDate != null) {
+                        TextButton(
+                            onClick = {
+                                viewModel.saveGoalDate(null)
+                                showGoalDatePicker = false
+                            }
+                        ) { Text("Entfernen", color = MaterialTheme.colorScheme.error) }
+                    }
+                    TextButton(onClick = { showGoalDatePicker = false }) { Text("Abbrechen") }
+                }
+            }
+        ) {
+            DatePicker(state = goalPickerState)
+        }
+    }
+
+    dateError?.let { message ->
+        InfoMessageDialog(
+            message = message,
+            confirmLabel = "OK",
+            onConfirm = { dateError = null }
+        )
+    }
+
+    // ---------- Rückfrage bei ungewöhnlichen Werten ----------
     pendingUnusual?.let { pending ->
         UnusualValueDialog(
             weightKg = pending.weightKg,

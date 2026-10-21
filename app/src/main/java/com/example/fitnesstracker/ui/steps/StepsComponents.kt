@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -31,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.fitnesstracker.domain.steps.StepBar
@@ -108,31 +110,51 @@ internal fun TodayCard(
     onEditGoal: () -> Unit
 ) {
     ForgeCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            SectionLabel("Heute")
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom
+            ) {
+                Column {
+                    SectionLabel("Heute")
 
-            Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
-            Text(
-                text = StepFormat.steps(progress.steps),
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontSize = 48.sp,
-                    lineHeight = 52.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            )
+                    Text(
+                        text = StepFormat.steps(progress.steps),
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontSize = 38.sp,
+                            lineHeight = 42.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
 
-            Text(
-                text = "von ${StepFormat.steps(progress.goal)} Schritten",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "von ${StepFormat.steps(progress.goal)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
 
-            Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Ziel ändern",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable(onClick = onEditGoal)
+                            .padding(horizontal = 6.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             ProgressBar(progress.barFraction.toFloat())
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -149,12 +171,6 @@ internal fun TodayCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            TextButton(onClick = onEditGoal) {
-                Text("Ziel ändern")
-            }
         }
     }
 }
@@ -166,32 +182,28 @@ internal fun TodayCard(
 @Composable
 internal fun SummaryCard(week: StepSummary, month: StepSummary) {
     ForgeCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(vertical = 16.dp)) {
-            Row(modifier = Modifier.height(IntrinsicSize.Min)) {
-                SummaryCell("7 Tage · Summe", StepFormat.steps(week.totalSteps.toInt()))
-                SummaryDivider()
-                SummaryCell("7 Tage · Ø pro Tag", week.averagePerDay?.let { StepFormat.steps(it) } ?: "—")
-            }
-
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(MaterialTheme.colorScheme.outline)
+        Row(
+            modifier = Modifier
+                .padding(vertical = 12.dp)
+                .height(IntrinsicSize.Min)
+        ) {
+            SummaryCell(
+                label = "7 Tage",
+                value = StepFormat.steps(week.totalSteps.toInt()),
+                average = week.averagePerDay
             )
-
-            Row(modifier = Modifier.height(IntrinsicSize.Min)) {
-                SummaryCell("30 Tage · Summe", StepFormat.steps(month.totalSteps.toInt()))
-                SummaryDivider()
-                SummaryCell("30 Tage · Ø pro Tag", month.averagePerDay?.let { StepFormat.steps(it) } ?: "—")
-            }
+            SummaryDivider()
+            SummaryCell(
+                label = "30 Tage",
+                value = StepFormat.steps(month.totalSteps.toInt()),
+                average = month.averagePerDay
+            )
         }
     }
 }
 
 @Composable
-private fun RowScope.SummaryCell(label: String, value: String) {
+private fun RowScope.SummaryCell(label: String, value: String, average: Int?) {
     Column(
         modifier = Modifier
             .weight(1f)
@@ -203,10 +215,15 @@ private fun RowScope.SummaryCell(label: String, value: String) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = value,
             style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center
+        )
+        Text(
+            text = "Ø " + (average?.let { StepFormat.steps(it) } ?: "—") + " pro Tag",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
     }
@@ -232,16 +249,26 @@ internal fun StepChartSection(
     bars: List<StepBar>,
     goal: Int,
     range: StepChartRange,
-    onRangeChange: (StepChartRange) -> Unit
+    chartHeight: Dp,
+    onRangeChange: (StepChartRange) -> Unit,
+    onBarClick: (epochDay: Long) -> Unit
 ) {
-    ForgeCard(modifier = Modifier.fillMaxWidth()) {
+    ForgeCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(chartHeight)
+    ) {
         if (StepChartData.hasAnySteps(bars)) {
-            StepChart(bars = bars, goal = goal, modifier = Modifier.fillMaxWidth())
+            StepChart(
+                bars = bars,
+                goal = goal,
+                modifier = Modifier.fillMaxSize(),
+                onBarClick = onBarClick
+            )
         } else {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
+                    .fillMaxSize()
                     .padding(24.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -284,63 +311,6 @@ internal fun StepChartSection(
                     color = if (isSelected) MaterialTheme.colorScheme.onSurface
                     else MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }
-        }
-    }
-}
-
-// ------------------------------------------------------------
-// Verlauf
-// ------------------------------------------------------------
-
-@Composable
-internal fun StepHistoryList(
-    items: List<StepDay>,
-    goal: Int,
-    onItemClick: (epochDay: Long) -> Unit
-) {
-    if (items.isEmpty()) {
-        Text(
-            text = "Hier erscheinen deine gezählten Schritte.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        return
-    }
-
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        items.forEach { day ->
-            val progress = StepCalculator.goalProgress(day.steps, goal)
-
-            ForgeCard(
-                modifier = Modifier.fillMaxWidth(),
-                onClick = { onItemClick(day.dateEpochDay) }
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = StepFormat.date(day.dateEpochDay),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = StepFormat.steps(day.steps),
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Text(
-                            text = StepFormat.percent(progress.percent) + " vom Ziel",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
             }
         }
     }

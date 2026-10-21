@@ -1,9 +1,9 @@
 package com.example.fitnesstracker.ui.weight
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -16,10 +16,12 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.fitnesstracker.domain.weight.WeightMeasurement
@@ -29,19 +31,22 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.ceil
 import kotlin.math.floor
+import kotlin.math.hypot
 import kotlin.math.log10
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
 /**
- * Liniendiagramm für Gewichtsmessungen (Stil: Simple Weight Tracker).
- * Alle Werte sind echte Messungen – nichts wird interpoliert oder erfunden.
+ * Liniendiagramm für Gewichtsmessungen. Alle Werte sind echte Messungen, nichts wird interpoliert.
  *
  * - Y-Achse mit "runden" Schritten und gepunkteten Hilfslinien
  * - X-Achse zeitlich korrekt (Abstand der Punkte = Abstand der Tage)
  * - Hohle Punkte mit Wert-Label
  * - Zielgewicht als gestrichelte Linie
+ * - Tippen auf einen Punkt meldet die zugehörige Messung über [onPointClick]
+ *
+ * Die Größe bestimmt der Aufrufer über [modifier] (z. B. fillMaxSize in einer Karte mit fester Höhe).
  *
  * @param measurements chronologisch aufsteigende echte Messungen
  * @param targetKg     optional: Zielgewicht für die gestrichelte Linie
@@ -50,14 +55,12 @@ import kotlin.math.roundToInt
 fun WeightChart(
     measurements: List<WeightMeasurement>,
     targetKg: Double?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onPointClick: ((WeightMeasurement) -> Unit)? = null
 ) {
     if (measurements.isEmpty()) {
         Box(
-            modifier = modifier
-                .fillMaxWidth()
-                .height(240.dp)
-                .padding(16.dp),
+            modifier = modifier.padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -73,7 +76,7 @@ fun WeightChart(
     val lineColor = ForgeColors.ChartLine
     val onBackground = MaterialTheme.colorScheme.onBackground
     // Das Diagramm liegt in einer Karte (surface): so wirken die Punkte wirklich hohl
-    val backgroundColor = MaterialTheme.colorScheme.surface
+    val pointFillColor = MaterialTheme.colorScheme.surface
     val gridColor = onBackground.copy(alpha = 0.25f)
 
     val axisLabelStyle = TextStyle(
@@ -91,70 +94,58 @@ fun WeightChart(
 
     Canvas(
         modifier = modifier
-            .fillMaxWidth()
-            .height(300.dp)
             .padding(horizontal = 8.dp, vertical = 8.dp)
+            .pointerInput(measurements, targetKg, onPointClick) {
+                if (onPointClick == null) return@pointerInput
+                val density: Density = this
+
+                detectTapGestures(onTap = { tap ->
+                    val g = ChartGeometry(
+                        measurements, targetKg,
+                        size.width.toFloat(), size.height.toFloat(), density
+                    )
+                    if (!g.isDrawable) return@detectTapGestures
+
+                    // Nächster Messpunkt zum Fingertipp, aber nur innerhalb eines großzügigen Radius
+                    var bestIndex = -1
+                    var bestDistance = Float.MAX_VALUE
+                    measurements.forEachIndexed { index, m ->
+                        val dx = g.xForDay(m.dateEpochDay) - tap.x
+                        val dy = g.yFor(m.weightKg.toFloat()) - tap.y
+                        val distance = hypot(dx, dy)
+                        if (distance < bestDistance) {
+                            bestDistance = distance
+                            bestIndex = index
+                        }
+                    }
+
+                    if (bestIndex >= 0 && bestDistance <= with(density) { 40.dp.toPx() }) {
+                        onPointClick(measurements[bestIndex])
+                    }
+                })
+            }
     ) {
-        val leftPadding = 40.dp.toPx()
-        val bottomPadding = 28.dp.toPx()
-        val topPadding = 16.dp.toPx()
-        val rightPadding = 16.dp.toPx()
+        val g = ChartGeometry(measurements, targetKg, size.width, size.height, this)
+        if (!g.isDrawable) return@Canvas
 
-        val chartLeft = leftPadding
-        val chartRight = size.width - rightPadding
-        val chartTop = topPadding
-        val chartBottom = size.height - bottomPadding
-        val chartWidth = chartRight - chartLeft
-        val chartHeight = chartBottom - chartTop
-
-        if (chartWidth <= 0f || chartHeight <= 0f) return@Canvas
-
-        // ---------- Wertebereich mit "runden" Schritten ----------
         val weights = measurements.map { it.weightKg.toFloat() }
-        val weightMin = weights.minOrNull() ?: 0f
-        val weightMax = weights.maxOrNull() ?: 0f
         val targetFloat = targetKg?.toFloat()
 
-        val dataMin = minOf(weightMin, targetFloat ?: weightMin)
-        val dataMax = maxOf(weightMax, targetFloat ?: weightMax)
-
-        val span = (dataMax - dataMin).coerceAtLeast(1f)
-        val step = niceStep(span / 3f)
-
-        val minValue = floor((dataMin - span * 0.1f) / step) * step
-        val maxValue = ceil((dataMax + span * 0.15f) / step) * step
-        val valueRange = (maxValue - minValue).coerceAtLeast(0.1f)
-
-        fun yFor(value: Float): Float =
-            chartBottom - ((value - minValue) / valueRange) * chartHeight
-
-        // ---------- X-Achse nach echtem Datum ----------
-        val firstDay = measurements.first().dateEpochDay
-        val lastDay = measurements.last().dateEpochDay
-        val daySpan = (lastDay - firstDay).toFloat()
-
-        fun xForDay(day: Long): Float =
-            if (daySpan <= 0f) {
-                (chartLeft + chartRight) / 2f
-            } else {
-                chartLeft + chartWidth * ((day - firstDay) / daySpan)
-            }
-
-        fun xFor(index: Int): Float = xForDay(measurements[index].dateEpochDay)
+        fun xFor(index: Int): Float = g.xForDay(measurements[index].dateEpochDay)
 
         // ---------- Y-Gitterlinien (gepunktet) + Beschriftung ----------
-        val decimals = if (step < 1f) 1 else 0
-        val lineCount = ((maxValue - minValue) / step).roundToInt()
+        val decimals = if (g.step < 1f) 1 else 0
+        val lineCount = ((g.maxValue - g.minValue) / g.step).roundToInt()
         val dotted = PathEffect.dashPathEffect(floatArrayOf(2f, 8f), 0f)
 
         for (i in 0..lineCount) {
-            val value = minValue + step * i
-            val y = yFor(value)
+            val value = g.minValue + g.step * i
+            val y = g.yFor(value)
 
             drawLine(
                 color = gridColor,
-                start = Offset(chartLeft, y),
-                end = Offset(chartRight, y),
+                start = Offset(g.chartLeft, y),
+                end = Offset(g.chartRight, y),
                 strokeWidth = 2f,
                 cap = StrokeCap.Round,
                 pathEffect = dotted
@@ -165,7 +156,7 @@ fun WeightChart(
             drawText(
                 textLayoutResult = measured,
                 topLeft = Offset(
-                    x = chartLeft - measured.size.width - 8.dp.toPx(),
+                    x = g.chartLeft - measured.size.width - 8.dp.toPx(),
                     y = y - measured.size.height / 2f
                 )
             )
@@ -173,11 +164,11 @@ fun WeightChart(
 
         // ---------- Zielgewicht (gestrichelt) ----------
         if (targetFloat != null) {
-            val y = yFor(targetFloat)
+            val y = g.yFor(targetFloat)
             drawLine(
                 color = lineColor,
-                start = Offset(chartLeft, y),
-                end = Offset(chartRight, y),
+                start = Offset(g.chartLeft, y),
+                end = Offset(g.chartRight, y),
                 strokeWidth = 2.5.dp.toPx(),
                 pathEffect = PathEffect.dashPathEffect(
                     floatArrayOf(14.dp.toPx(), 8.dp.toPx()), 0f
@@ -188,9 +179,9 @@ fun WeightChart(
         // ---------- Linie durch die Messpunkte ----------
         if (measurements.size >= 2) {
             val path = Path().apply {
-                moveTo(xFor(0), yFor(weights[0]))
+                moveTo(xFor(0), g.yFor(weights[0]))
                 for (i in 1 until measurements.size) {
-                    lineTo(xFor(i), yFor(weights[i]))
+                    lineTo(xFor(i), g.yFor(weights[i]))
                 }
             }
             drawPath(
@@ -207,8 +198,8 @@ fun WeightChart(
         // ---------- Hohle Punkte ----------
         val pointRadius = 5.dp.toPx()
         measurements.forEachIndexed { index, _ ->
-            val center = Offset(xFor(index), yFor(weights[index]))
-            drawCircle(color = backgroundColor, radius = pointRadius, center = center)
+            val center = Offset(xFor(index), g.yFor(weights[index]))
+            drawCircle(color = pointFillColor, radius = pointRadius, center = center)
             drawCircle(
                 color = lineColor,
                 radius = pointRadius,
@@ -233,12 +224,12 @@ fun WeightChart(
             val measured = textMeasurer.measure(valueText, valueLabelStyle)
 
             val cx = xFor(index)
-            val cy = yFor(weights[index])
+            val cy = g.yFor(weights[index])
 
             var labelX = cx - measured.size.width / 2f
             var labelY = cy - measured.size.height - pointRadius - 4.dp.toPx()
 
-            labelX = labelX.coerceIn(chartLeft - 8.dp.toPx(), size.width - measured.size.width)
+            labelX = labelX.coerceIn(g.chartLeft - 8.dp.toPx(), size.width - measured.size.width)
             if (labelY < 0f) {
                 labelY = cy + pointRadius + 4.dp.toPx()
             }
@@ -250,24 +241,79 @@ fun WeightChart(
         }
 
         // ---------- X-Achse: gleichmäßig verteilte Datums-Beschriftung ----------
-        val labelTickCount = if (daySpan <= 0f) 1 else min(5, daySpan.toInt() + 1)
+        val labelTickCount = if (g.daySpan <= 0f) 1 else min(5, g.daySpan.toInt() + 1)
 
         for (k in 0 until labelTickCount) {
             val fraction = if (labelTickCount == 1) 0f else k / (labelTickCount - 1f)
-            val day = firstDay + (daySpan * fraction).roundToInt()
+            val day = g.firstDay + (g.daySpan * fraction).roundToInt()
             val label = LocalDate.ofEpochDay(day).format(dateFormatter)
             val measured = textMeasurer.measure(label, axisLabelStyle)
 
-            val centerX = if (labelTickCount == 1) xForDay(day) else xForDay(day)
-            val x = (centerX - measured.size.width / 2f)
-                .coerceIn(chartLeft - 8.dp.toPx(), size.width - measured.size.width)
+            val x = (g.xForDay(day) - measured.size.width / 2f)
+                .coerceIn(g.chartLeft - 8.dp.toPx(), size.width - measured.size.width)
 
             drawText(
                 textLayoutResult = measured,
-                topLeft = Offset(x = x, y = chartBottom + 6.dp.toPx())
+                topLeft = Offset(x = x, y = g.chartBottom + 6.dp.toPx())
             )
         }
     }
+}
+
+/**
+ * Gemeinsame Geometrie von Zeichnen und Antippen, damit beide immer dieselben Punktpositionen sehen.
+ * [width] und [height] sind die Maße der Zeichenfläche in Pixeln.
+ */
+private class ChartGeometry(
+    measurements: List<WeightMeasurement>,
+    targetKg: Double?,
+    width: Float,
+    height: Float,
+    density: Density
+) {
+    val chartLeft: Float = with(density) { 40.dp.toPx() }
+    val chartRight: Float = width - with(density) { 16.dp.toPx() }
+    val chartTop: Float = with(density) { 16.dp.toPx() }
+    val chartBottom: Float = height - with(density) { 28.dp.toPx() }
+
+    val chartWidth: Float = chartRight - chartLeft
+    val chartHeight: Float = chartBottom - chartTop
+    val isDrawable: Boolean = chartWidth > 0f && chartHeight > 0f
+
+    val minValue: Float
+    val maxValue: Float
+    val step: Float
+    private val valueRange: Float
+
+    val firstDay: Long = measurements.first().dateEpochDay
+    val daySpan: Float = (measurements.last().dateEpochDay - firstDay).toFloat()
+
+    init {
+        val weights = measurements.map { it.weightKg.toFloat() }
+        val weightMin = weights.minOrNull() ?: 0f
+        val weightMax = weights.maxOrNull() ?: 0f
+        val targetFloat = targetKg?.toFloat()
+
+        val dataMin = minOf(weightMin, targetFloat ?: weightMin)
+        val dataMax = maxOf(weightMax, targetFloat ?: weightMax)
+
+        val span = (dataMax - dataMin).coerceAtLeast(1f)
+        step = niceStep(span / 3f)
+
+        minValue = floor((dataMin - span * 0.1f) / step) * step
+        maxValue = ceil((dataMax + span * 0.15f) / step) * step
+        valueRange = (maxValue - minValue).coerceAtLeast(0.1f)
+    }
+
+    fun yFor(value: Float): Float =
+        chartBottom - ((value - minValue) / valueRange) * chartHeight
+
+    fun xForDay(day: Long): Float =
+        if (daySpan <= 0f) {
+            (chartLeft + chartRight) / 2f
+        } else {
+            chartLeft + chartWidth * ((day - firstDay) / daySpan)
+        }
 }
 
 /** Liefert einen "runden" Schritt (1, 2, 5, 10, 20, 50 …) für die Y-Achse. */

@@ -11,6 +11,7 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,11 +39,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.fitnesstracker.domain.steps.StepCalculator
 import com.example.fitnesstracker.domain.steps.StepChartData
 import com.example.fitnesstracker.domain.steps.StepChartRange
+import com.example.fitnesstracker.domain.steps.StepDay
 import com.example.fitnesstracker.domain.steps.StepGoalParseResult
 import com.example.fitnesstracker.domain.steps.StepGoalParser
 import com.example.fitnesstracker.domain.steps.toStepDay
-import com.example.fitnesstracker.ui.weight.SectionLabel
 import java.time.LocalDate
+
+// Feste Höhe von allem außer dem Diagramm (Titel, Heute-Karte, Statistik, Zeitraum-Leiste, Abstände).
+// Das Diagramm bekommt den Rest des Bildschirms, mindestens aber MIN_CHART_HEIGHT.
+// Beides ist knapp gehalten, damit die ganze Seite ohne Scrollen auf ein Handy passt.
+private val CHART_OVERHEAD = 380.dp
+private val MIN_CHART_HEIGHT = 180.dp
 
 private fun hasActivityRecognition(context: Context): Boolean =
     Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
@@ -123,92 +130,85 @@ fun StepsScreen(
     val week = StepCalculator.summary(days, 7, todayEpochDay)
     val month = StepCalculator.summary(days, 30, todayEpochDay)
     val bars = StepChartData.barsFor(days, chartRange, todayEpochDay)
-    val history = days.filter { it.steps > 0 }.sortedByDescending { it.dateEpochDay }.take(30)
 
     // ---------- Layout ----------
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp)
-            .padding(top = 24.dp)
-    ) {
-        Text(
-            text = "Schritte",
-            style = MaterialTheme.typography.headlineMedium
-        )
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val chartHeight = (maxHeight - CHART_OVERHEAD).coerceAtLeast(MIN_CHART_HEIGHT)
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(top = 16.dp)
+        ) {
+            Text(
+                text = "Schritte",
+                style = MaterialTheme.typography.headlineMedium
+            )
 
-        if (!viewModel.isSensorAvailable) {
-            StepsNoticeCard(message = "Dein Gerät unterstützt keinen Schrittzähler.")
-        } else {
-            if (!hasPermission) {
-                StepsNoticeCard(
-                    message = "Um deine Schritte zu zählen, braucht Forge die Berechtigung " +
-                            "„Körperliche Aktivität“.",
-                    primaryLabel = "Berechtigung erteilen",
-                    onPrimary = {
-                        permissionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
-                    },
-                    // Nach einer Ablehnung zeigt Android den Dialog oft nicht mehr: dann Einstellungen
-                    secondaryLabel = if (permissionDeniedOnce) "Einstellungen öffnen" else null,
-                    onSecondary = {
-                        context.startActivity(
-                            Intent(
-                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                                Uri.fromParts("package", context.packageName, null)
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (!viewModel.isSensorAvailable) {
+                StepsNoticeCard(message = "Dein Gerät unterstützt keinen Schrittzähler.")
+            } else {
+                if (!hasPermission) {
+                    StepsNoticeCard(
+                        message = "Um deine Schritte zu zählen, braucht Forge die Berechtigung " +
+                                "„Körperliche Aktivität“.",
+                        primaryLabel = "Berechtigung erteilen",
+                        onPrimary = {
+                            permissionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
+                        },
+                        // Nach einer Ablehnung zeigt Android den Dialog oft nicht mehr: dann Einstellungen
+                        secondaryLabel = if (permissionDeniedOnce) "Einstellungen öffnen" else null,
+                        onSecondary = {
+                            context.startActivity(
+                                Intent(
+                                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    Uri.fromParts("package", context.packageName, null)
+                                )
                             )
-                        )
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                TodayCard(
+                    progress = progress,
+                    onEditGoal = {
+                        goalInput = goal.toString()
+                        goalError = null
+                        showGoalDialog = true
                     }
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
+
+                SummaryCard(week = week, month = month)
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                StepChartSection(
+                    bars = bars,
+                    goal = goal,
+                    range = chartRange,
+                    chartHeight = chartHeight,
+                    onRangeChange = { chartRange = it },
+                    onBarClick = { selectedDayEpoch = it }
+                )
             }
 
-            TodayCard(
-                progress = progress,
-                onEditGoal = {
-                    goalInput = goal.toString()
-                    goalError = null
-                    showGoalDialog = true
-                }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            SummaryCard(week = week, month = month)
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            StepChartSection(
-                bars = bars,
-                goal = goal,
-                range = chartRange,
-                onRangeChange = { chartRange = it }
-            )
-
-            Spacer(modifier = Modifier.height(28.dp))
-
-            SectionLabel("Verlauf")
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            StepHistoryList(
-                items = history,
-                goal = goal,
-                onItemClick = { selectedDayEpoch = it }
-            )
+            Spacer(modifier = Modifier.height(8.dp))
         }
-
-        Spacer(modifier = Modifier.height(24.dp))
     }
 
     // ---------- Dialoge ----------
-    val selectedDay = days.firstOrNull { it.dateEpochDay == selectedDayEpoch }
-    if (selectedDay != null) {
+    // Tippen auf einen Balken zeigt den Tag. Tage ohne Eintrag zeigen 0 Schritte.
+    selectedDayEpoch?.let { epochDay ->
         StepDayDialog(
-            day = selectedDay,
+            day = StepDay(epochDay, StepCalculator.stepsOn(days, epochDay)),
             goal = goal,
             onDismiss = { selectedDayEpoch = null }
         )

@@ -75,7 +75,8 @@ class WeightViewModel(application: Application) :
                             targetWeightKg = currentGoal.targetWeightKg,
                             startWeightKg = weightKg,
                             createdAt = currentGoal.createdAt,
-                            updatedAt = System.currentTimeMillis()
+                            updatedAt = System.currentTimeMillis(),
+                            targetDateEpochDay = currentGoal.targetDateEpochDay
                         )
                     )
                 }
@@ -111,9 +112,18 @@ class WeightViewModel(application: Application) :
                     startWeightKg = currentGoal?.startWeightKg
                         ?: latestEntry?.weightKg,
                     createdAt = currentGoal?.createdAt ?: now,
-                    updatedAt = now
+                    updatedAt = now,
+                    // Das Zieldatum bleibt erhalten, wenn nur das Zielgewicht geändert wird
+                    targetDateEpochDay = currentGoal?.targetDateEpochDay
                 )
             )
+        }
+    }
+
+    /** Setzt oder entfernt (null) das Zieldatum. Ohne Ziel passiert nichts. */
+    fun saveGoalDate(epochDay: Long?) {
+        viewModelScope.launch {
+            weightGoalDao.setTargetDate(epochDay, System.currentTimeMillis())
         }
     }
 

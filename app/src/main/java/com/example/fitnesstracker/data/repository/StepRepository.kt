@@ -15,8 +15,11 @@ class StepRepository(
     private val dao: StepEntryDao,
     private val prefs: StepPreferences
 ) {
-    // Sensorwerte werden nacheinander verarbeitet, damit keine Schritte doppelt zählen.
-    private val mutex = Mutex()
+    private companion object {
+        // Sensorwerte werden nacheinander verarbeitet, damit keine Schritte doppelt zählen.
+        // Die Sperre gilt für die ganze App, auch für das Lesen im Hintergrund.
+        val mutex = Mutex()
+    }
 
     private val _stepGoal = MutableStateFlow(prefs.getStepGoal())
     val stepGoal: StateFlow<Int> = _stepGoal.asStateFlow()

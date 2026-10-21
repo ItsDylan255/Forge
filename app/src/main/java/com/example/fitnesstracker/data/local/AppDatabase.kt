@@ -10,9 +10,18 @@ import androidx.room.RoomDatabase
         WeightGoal::class,
         FoodItem::class,
         FoodLogEntry::class,
-        StepEntry::class
+        StepEntry::class,
+        GymExercise::class,
+        GymRoutine::class,
+        GymRoutineExercise::class,
+        GymSession::class,
+        GymSet::class,
+        UserProfile::class,
+        Meal::class,
+        MealIngredient::class,
+        FoodPortion::class
     ],
-    version = 5,
+    version = 13,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -28,4 +37,12 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun foodLogEntryDao(): FoodLogEntryDao
 
     abstract fun stepEntryDao(): StepEntryDao
+
+    abstract fun gymDao(): GymDao
+
+    abstract fun foodDao(): FoodDao
+
+    abstract fun userProfileDao(): UserProfileDao
+
+    abstract fun mealDao(): MealDao
 }

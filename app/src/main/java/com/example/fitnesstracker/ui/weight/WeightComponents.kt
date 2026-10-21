@@ -39,12 +39,19 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.fitnesstracker.domain.weight.ChartRange
+import com.example.fitnesstracker.domain.weight.GoalDeadline
 import com.example.fitnesstracker.domain.weight.GoalDirection
 import com.example.fitnesstracker.domain.weight.GoalProgress
 import com.example.fitnesstracker.domain.weight.WeightChange
 import com.example.fitnesstracker.domain.weight.WeightFormat
 import com.example.fitnesstracker.domain.weight.WeightHistoryItem
 import com.example.fitnesstracker.domain.weight.WeightMeasurement
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.unit.Dp
+import com.example.fitnesstracker.data.local.WeightGoal
+import com.example.fitnesstracker.domain.weight.WeightForecast
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 // ------------------------------------------------------------
@@ -133,14 +140,63 @@ internal fun WeightTabs(selected: Int, onSelect: (Int) -> Unit) {
 }
 
 // ------------------------------------------------------------
-// Weight-Tab
+// Info-Boxen (gleiches Raster für Statistik und Ziel)
 // ------------------------------------------------------------
+
+private val BoxHeight = 80.dp
+private val boxDateFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("dd.MM.yy", Locale.GERMANY)
+
+/**
+ * Eine kleine Info-Box. Mit [onClick] ist sie antippbar,
+ * mit [muted] wird der Wert gedämpft dargestellt (z. B. "Festlegen" oder "—").
+ */
+@Composable
+internal fun RowScope.InfoBox(
+    label: String,
+    value: String,
+    onClick: (() -> Unit)? = null,
+    muted: Boolean = false
+) {
+    ForgeCard(
+        modifier = Modifier
+            .weight(1f)
+            .height(BoxHeight),
+        onClick = onClick
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                maxLines = 2
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium,
+                color = if (muted) MaterialTheme.colorScheme.onSurfaceVariant
+                else MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center,
+                maxLines = 1
+            )
+        }
+    }
+}
 
 private fun WeightChange?.asText(): String =
     this?.let { WeightFormat.delta(it.deltaKg) } ?: "—"
 
+/** Tab "Gewicht": sechs Statistik-Boxen (2 Zeilen mit je 3 Spalten). */
 @Composable
-internal fun StatsCard(
+internal fun StatsGrid(
     latest: WeightMeasurement?,
     changeToPrevious: WeightChange?,
     changeTotal: WeightChange?,
@@ -148,93 +204,152 @@ internal fun StatsCard(
     change30: WeightChange?,
     change90: WeightChange?
 ) {
-    ForgeCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(vertical = 16.dp)) {
-            Row(modifier = Modifier.height(IntrinsicSize.Min)) {
-                StatCell("Aktuell", latest?.let { WeightFormat.weight(it.weightKg) } ?: "—")
-                StatDivider()
-                StatCell("Änderung", changeToPrevious.asText())
-                StatDivider()
-                StatCell("Gesamt", changeTotal.asText())
-            }
-
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(MaterialTheme.colorScheme.outline)
-            )
-
-            Row(modifier = Modifier.height(IntrinsicSize.Min)) {
-                StatCell("7 Tage", change7.asText())
-                StatDivider()
-                StatCell("30 Tage", change30.asText())
-                StatDivider()
-                StatCell("90 Tage", change90.asText())
-            }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            InfoBox("Aktuell", latest?.let { WeightFormat.weight(it.weightKg) } ?: "—")
+            InfoBox("Änderung", changeToPrevious.asText())
+            InfoBox("Gesamt", changeTotal.asText())
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            InfoBox("7 Tage", change7.asText())
+            InfoBox("30 Tage", change30.asText())
+            InfoBox("90 Tage", change90.asText())
         }
     }
 }
 
+/**
+ * Tab "Ziel": sechs Ziel-Boxen (2 Zeilen mit je 3 Spalten).
+ * Zielgewicht und Zieldatum sind antippbar.
+ */
 @Composable
-private fun RowScope.StatCell(label: String, value: String) {
-    Column(
-        modifier = Modifier
-            .weight(1f)
-            .padding(horizontal = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleMedium,
-            textAlign = TextAlign.Center
-        )
+internal fun GoalGrid(
+    goal: WeightGoal?,
+    currentKg: Double?,
+    progress: GoalProgress?,
+    forecast: WeightForecast?,
+    onTargetClick: () -> Unit,
+    onDateClick: () -> Unit
+) {
+    val target = goal?.targetWeightKg
+    val start = goal?.startWeightKg
+
+    // Bei Start unter Ziel ist es ein Zunehmen-Ziel
+    val gaining = if (start != null && target != null) start < target
+    else progress?.direction == GoalDirection.GAIN
+
+    // Tage bis zum Zieldatum (null ohne Datum)
+    val daysText: String? = GoalDeadline.text(
+        GoalDeadline.daysLeft(goal?.targetDateEpochDay, LocalDate.now().toEpochDay())
+    )
+
+    val remainingText: String? = progress?.let {
+        if (it.direction == GoalDirection.REACHED) WeightFormat.weight(0.0)
+        else WeightFormat.weight(it.remainingKg)
+    }
+
+    val percentText: String? = progress?.progressFraction?.let {
+        String.format(Locale.GERMANY, "%.0f %%", it * 100.0)
+    }
+
+    val dateText: String? = goal?.targetDateEpochDay?.let {
+        LocalDate.ofEpochDay(it).format(boxDateFormatter)
+    }
+
+    val forecastText: String? = when (forecast) {
+        is WeightForecast.Predicted -> LocalDate.ofEpochDay(forecast.epochDay).format(boxDateFormatter)
+        WeightForecast.Reached -> "Erreicht"
+        // Kurze Gründe, damit die Box nicht einfach leer bleibt
+        WeightForecast.NotEnoughData -> "Mehr Daten"
+        WeightForecast.NoProgress -> "Kein Trend"
+        WeightForecast.TooFar -> "> 10 Jahre"
+        else -> null
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            InfoBox(
+                label = "Bis Zieldatum",
+                value = daysText ?: "—",
+                muted = daysText == null
+            )
+            InfoBox(
+                label = "Zielgewicht",
+                value = target?.let { WeightFormat.weight(it) } ?: "Festlegen",
+                onClick = onTargetClick,
+                muted = target == null
+            )
+            InfoBox(
+                label = if (gaining) "Noch zuzunehmen" else "Noch abzunehmen",
+                value = remainingText ?: "—",
+                muted = remainingText == null
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            InfoBox(
+                label = "Zieldatum",
+                value = dateText ?: if (goal == null) "—" else "Festlegen",
+                onClick = onDateClick,
+                muted = dateText == null
+            )
+            InfoBox(
+                label = "Fortschritt",
+                value = percentText ?: "—",
+                muted = percentText == null
+            )
+            InfoBox(
+                label = "Prognose",
+                value = forecastText ?: "—",
+                muted = forecast !is WeightForecast.Predicted && forecast != WeightForecast.Reached
+            )
+        }
     }
 }
 
-@Composable
-private fun StatDivider() {
-    Box(
-        modifier = Modifier
-            .padding(vertical = 4.dp)
-            .fillMaxHeight()
-            .width(1.dp)
-            .background(MaterialTheme.colorScheme.outline)
-    )
-}
+// ------------------------------------------------------------
+// Diagramm (bleibt in beiden Tabs sichtbar)
+// ------------------------------------------------------------
 
 @Composable
-internal fun ChartSection(
+internal fun ChartCard(
     points: List<WeightMeasurement>,
-    hasEnoughPoints: Boolean,
     targetKg: Double?,
-    range: ChartRange,
-    onRangeChange: (ChartRange) -> Unit
+    height: Dp,
+    onPointClick: (entryId: Long) -> Unit
 ) {
-    ForgeCard(modifier = Modifier.fillMaxWidth()) {
-        if (hasEnoughPoints) {
+    ForgeCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(height)
+    ) {
+        if (points.isNotEmpty()) {
             WeightChart(
                 measurements = points,
                 targetKg = targetKg,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxSize(),
+                onPointClick = { onPointClick(it.id) }
             )
         } else {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
+                    .fillMaxSize()
                     .padding(24.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Für das Diagramm brauchst du mindestens zwei Messungen im gewählten Zeitraum.",
+                    text = "Keine Messung im gewählten Zeitraum.",
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -242,15 +357,20 @@ internal fun ChartSection(
             }
         }
     }
+}
 
-    Spacer(modifier = Modifier.height(8.dp))
-
+@Composable
+internal fun RangeSelector(
+    selected: ChartRange,
+    onSelect: (ChartRange) -> Unit,
+    modifier: Modifier = Modifier
+) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         ChartRange.values().forEach { option ->
-            val isSelected = option == range
+            val isSelected = option == selected
 
             Box(
                 modifier = Modifier
@@ -260,7 +380,7 @@ internal fun ChartSection(
                         if (isSelected) MaterialTheme.colorScheme.surfaceVariant
                         else Color.Transparent
                     )
-                    .clickable { onRangeChange(option) }
+                    .clickable { onSelect(option) }
                     .padding(vertical = 8.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -273,208 +393,6 @@ internal fun ChartSection(
                     color = if (isSelected) MaterialTheme.colorScheme.onSurface
                     else MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }
-        }
-    }
-}
-
-@Composable
-internal fun HistoryList(
-    items: List<WeightHistoryItem>,
-    onItemClick: (entryId: Long) -> Unit
-) {
-    if (items.isEmpty()) {
-        Text(
-            text = "Hier erscheinen deine gespeicherten Messungen.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        return
-    }
-
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        items.forEach { item ->
-            ForgeCard(
-                modifier = Modifier.fillMaxWidth(),
-                onClick = { onItemClick(item.measurement.id) }
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = WeightFormat.date(item.measurement.dateEpochDay),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = WeightFormat.weight(item.measurement.weightKg),
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        item.deltaToPreviousKg?.let { delta ->
-                            Text(
-                                text = WeightFormat.delta(delta),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ------------------------------------------------------------
-// Ziel-Tab
-// ------------------------------------------------------------
-
-@Composable
-private fun ProgressBar(fraction: Float) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(8.dp)
-            .clip(RoundedCornerShape(4.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(fraction.coerceIn(0f, 1f))
-                .fillMaxHeight()
-                .background(MaterialTheme.colorScheme.primary)
-        )
-    }
-}
-
-@Composable
-internal fun GoalCard(
-    targetKg: Double?,
-    startKg: Double?,
-    progress: GoalProgress?,
-    isEditing: Boolean,
-    input: String,
-    error: String?,
-    onInputChange: (String) -> Unit,
-    onStartEdit: () -> Unit,
-    onSave: () -> Unit,
-    onCancel: () -> Unit,
-    onDelete: () -> Unit
-) {
-    ForgeCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            SectionLabel("Mein Zielgewicht")
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            if (targetKg == null) {
-                Text(
-                    text = "Noch kein Ziel gesetzt",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else {
-                Text(
-                    text = WeightFormat.weight(targetKg),
-                    style = MaterialTheme.typography.headlineMedium
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                if (progress == null) {
-                    Text(
-                        text = "Trage dein Gewicht ein, um deinen Fortschritt zu sehen.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    val remainingText = when (progress.direction) {
-                        GoalDirection.REACHED -> "Ziel erreicht"
-                        GoalDirection.LOSE ->
-                            "Noch ${WeightFormat.weight(progress.remainingKg)} abnehmen"
-                        GoalDirection.GAIN ->
-                            "Noch ${WeightFormat.weight(progress.remainingKg)} zunehmen"
-                    }
-                    val fraction = progress.progressFraction
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = remainingText,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        if (fraction != null) {
-                            Text(
-                                text = String.format(
-                                    Locale.GERMANY, "%.0f %%", fraction * 100.0
-                                ),
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                        }
-                    }
-
-                    if (fraction != null) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        ProgressBar(fraction.toFloat())
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = "Start: ${startKg?.let { WeightFormat.weight(it) } ?: "—"}" +
-                                "  →  Aktuell: ${WeightFormat.weight(progress.currentKg)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            if (isEditing) {
-                OutlinedTextField(
-                    value = input,
-                    onValueChange = onInputChange,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Zielgewicht in kg") },
-                    placeholder = { Text("z. B. 85,0") },
-                    singleLine = true,
-                    isError = error != null,
-                    supportingText = error?.let { message -> { Text(message) } },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Button(onClick = onSave, modifier = Modifier.fillMaxWidth()) {
-                    Text("Ziel speichern")
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
-                    Text("Abbrechen")
-                }
-            } else {
-                Button(onClick = onStartEdit, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (targetKg == null) "Zielgewicht festlegen" else "Zielgewicht ändern")
-                }
-
-                if (targetKg != null) {
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) {
-                        Text("Ziel entfernen", color = MaterialTheme.colorScheme.error)
-                    }
-                }
             }
         }
     }
@@ -661,5 +579,64 @@ internal fun UnusualValueDialog(
         },
         confirmButton = { TextButton(onClick = onConfirm) { Text("Ja, speichern") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Korrigieren") } }
+    )
+}
+
+/** Zielgewicht festlegen oder ändern. Entfernen ist hier möglich, aber nur mit Sicherheitsfrage. */
+@Composable
+internal fun GoalWeightDialog(
+    hasGoal: Boolean,
+    input: String,
+    error: String?,
+    onInputChange: (String) -> Unit,
+    onSave: () -> Unit,
+    onRemove: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Zielgewicht") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = onInputChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Zielgewicht in kg") },
+                    placeholder = { Text("z. B. 85,0") },
+                    singleLine = true,
+                    isError = error != null,
+                    supportingText = error?.let { message -> { Text(message) } },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                )
+
+                if (hasGoal) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    TextButton(onClick = onRemove) {
+                        Text("Ziel entfernen", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onSave) { Text("Speichern") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }
+    )
+}
+
+/** Einfacher Hinweis mit einer Aktion. */
+@Composable
+internal fun InfoMessageDialog(
+    message: String,
+    confirmLabel: String,
+    onConfirm: () -> Unit,
+    onDismiss: (() -> Unit)? = null
+) {
+    AlertDialog(
+        onDismissRequest = { onDismiss?.invoke() ?: onConfirm() },
+        text = { Text(message) },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(confirmLabel) } },
+        dismissButton = onDismiss?.let { dismiss ->
+            { TextButton(onClick = dismiss) { Text("Abbrechen") } }
+        }
     )
 }

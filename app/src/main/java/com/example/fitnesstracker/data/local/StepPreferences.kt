@@ -19,6 +19,16 @@ class StepPreferences(context: Context) {
         prefs.edit().putLong(KEY_LAST_TOTAL, total).apply()
     }
 
+    /**
+     * Einmalig nach dem Umstieg auf das Zählen im Hintergrund: Der gespeicherte Rohwert stammt vom
+     * letzten Öffnen des Screens und würde alle Schritte seitdem dem heutigen Tag gutschreiben.
+     * Er wird verworfen, der nächste Sensorwert dient dann nur als Basis.
+     */
+    fun resetBaselineOnce() {
+        if (prefs.getBoolean(KEY_BASELINE_V2, false)) return
+        prefs.edit().remove(KEY_LAST_TOTAL).putBoolean(KEY_BASELINE_V2, true).apply()
+    }
+
     fun getStepGoal(): Int = prefs.getInt(KEY_GOAL, DEFAULT_GOAL)
 
     fun setStepGoal(goal: Int) {
@@ -29,5 +39,6 @@ class StepPreferences(context: Context) {
         const val DEFAULT_GOAL = 10_000
         private const val KEY_LAST_TOTAL = "last_sensor_total"
         private const val KEY_GOAL = "step_goal"
+        private const val KEY_BASELINE_V2 = "baseline_v2"
     }
 }

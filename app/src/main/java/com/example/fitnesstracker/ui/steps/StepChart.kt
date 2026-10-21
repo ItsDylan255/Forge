@@ -1,6 +1,7 @@
 package com.example.fitnesstracker.ui.steps
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -10,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.TextStyle
@@ -37,12 +39,15 @@ import kotlin.math.roundToInt
  * - Balken, die das Tagesziel erreichen, sind voll eingefärbt, die anderen gedimmt.
  * - Tagesziel als gestrichelte Linie.
  * - Bei bis zu 7 Balken stehen Wochentag und Wert direkt am Balken.
+ * - Tippen auf einen Tag meldet ihn über [onBarClick].
+ * Die Größe bestimmt der Aufrufer über [modifier].
  */
 @Composable
 fun StepChart(
     bars: List<StepBar>,
     goal: Int?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onBarClick: ((epochDay: Long) -> Unit)? = null
 ) {
     val textMeasurer = rememberTextMeasurer()
 
@@ -57,9 +62,25 @@ fun StepChart(
 
     Canvas(
         modifier = modifier
-            .fillMaxWidth()
-            .height(260.dp)
             .padding(horizontal = 8.dp, vertical = 8.dp)
+            .pointerInput(bars, onBarClick) {
+                if (onBarClick == null) return@pointerInput
+
+                detectTapGestures(onTap = { tap ->
+                    // Gleiche Geometrie wie beim Zeichnen: Tippen irgendwo in der Spalte eines Tages
+                    val chartLeft = 48.dp.toPx()
+                    val chartRight = size.width - 8.dp.toPx()
+                    val chartWidth = chartRight - chartLeft
+
+                    if (bars.isNotEmpty() && chartWidth > 0f &&
+                        tap.x >= chartLeft && tap.x <= chartRight
+                    ) {
+                        val slot = chartWidth / bars.size
+                        val index = ((tap.x - chartLeft) / slot).toInt().coerceIn(0, bars.lastIndex)
+                        onBarClick(bars[index].dateEpochDay)
+                    }
+                })
+            }
     ) {
         if (bars.isEmpty()) return@Canvas
 
