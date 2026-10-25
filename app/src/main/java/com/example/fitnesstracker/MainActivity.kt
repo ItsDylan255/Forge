@@ -54,7 +54,7 @@ import com.example.fitnesstracker.domain.food.FoodFormat
 import com.example.fitnesstracker.domain.food.toData
 import com.example.fitnesstracker.ui.calories.CalorieViewModel
 import java.time.LocalDate
-import com.example.fitnesstracker.service.StepSyncScheduler
+import com.example.fitnesstracker.service.StepTracking
 import com.example.fitnesstracker.service.WeightReminderScheduler
 import com.example.fitnesstracker.ui.food.FoodScreen
 import com.example.fitnesstracker.ui.home.HomeScreen
@@ -105,9 +105,6 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
         )
 
-        // Schritte auch im Hintergrund zählen (alle ca. 15 Minuten)
-        StepSyncScheduler.schedule(applicationContext)
-
         // Gewicht-Erinnerung (falls eingeschaltet) für den nächsten Termin planen
         WeightReminderScheduler.schedule(applicationContext)
 
@@ -124,6 +121,12 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Schritt-Dienst starten (oder stoppen, falls abgeschaltet). Auch nach dem Erteilen der Berechtigung.
+        StepTracking.start(applicationContext)
     }
 
     override fun onNewIntent(intent: Intent) {

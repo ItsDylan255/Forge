@@ -40,6 +40,14 @@ data class NewBest(
     val kind: ExerciseKind = ExerciseKind.REPS
 )
 
+/** Womit der Gesamt-Verlauf einer Übung gemessen wird: Volumen in kg, Wiederholungen oder Zeit. */
+enum class TotalMetric { VOLUME, REPS, TIME }
+
+/** Alles, was in einem Training (an einem Tag) bei einer Übung zusammenkam. */
+data class TotalPoint(val dateEpochDay: Long, val total: Double, val setCount: Int)
+
+data class ExerciseTotals(val metric: TotalMetric, val points: List<TotalPoint>)
+
 /** Ergebnis des letzten beendeten Trainings mit einer Übung (Sätze in Reihenfolge des Loggens). */
 data class LastPerformance(
     val sessionId: Long,
@@ -217,6 +225,43 @@ object GymCalculator {
                     null
                 }
             }
+    }
+
+    /**
+     * Gesamt-Verlauf einer Übung: pro Trainingstag die Summe über alle Sätze (je Art der Übung).
+     * Wiederholungen: Gewicht × Wdh. summiert; hat die Übung nie ein Gewicht (Körpergewicht), zählen
+     * die Wiederholungen. Assistiert: (Körpergewicht − Unterstützung) × Wdh.; ohne Körpergewicht ebenso
+     * die Wiederholungen. Zeit: die Sekunden. Chronologisch aufsteigend.
+     */
+    fun exerciseTotals(
+        exerciseId: Long,
+        sessions: List<WorkoutSessionData>,
+        sets: List<WorkoutSetData>
+    ): ExerciseTotals {
+        val dateBySession = sessions.associate { it.id to it.dateEpochDay }
+        val own = sets.filter { it.exerciseId == exerciseId && it.sessionId in dateBySession }
+        val kind = own.maxByOrNull { it.order }?.kind
+            ?: return ExerciseTotals(TotalMetric.VOLUME, emptyList())
+        val ofKind = own.filter { it.kind == kind }
+
+        val metric = when {
+            kind == ExerciseKind.TIME -> TotalMetric.TIME
+            ofKind.sumOf { setVolume(it) } > 0.0 -> TotalMetric.VOLUME
+            else -> TotalMetric.REPS
+        }
+
+        val points = ofKind
+            .groupBy { dateBySession.getValue(it.sessionId) }
+            .map { (day, list) ->
+                val total = when (metric) {
+                    TotalMetric.VOLUME -> list.sumOf { setVolume(it) }
+                    TotalMetric.REPS, TotalMetric.TIME -> list.sumOf { it.reps.toDouble() }
+                }
+                TotalPoint(day, total, list.size)
+            }
+            .sortedBy { it.dateEpochDay }
+
+        return ExerciseTotals(metric, points)
     }
 
     /**

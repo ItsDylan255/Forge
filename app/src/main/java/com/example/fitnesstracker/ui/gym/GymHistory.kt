@@ -382,7 +382,9 @@ fun ExerciseProgressScreen(
     val finishedData = sessions.filter { it.endedAt != null }.map { it.toData() }
     val setData = sets.map { it.toData() }
 
-    val points = GymCalculator.exerciseProgress(exerciseId, finishedData, setData)
+    // Gesamt-Verlauf: was in jedem Training insgesamt bei dieser Übung zusammenkam
+    val totals = GymCalculator.exerciseTotals(exerciseId, finishedData, setData)
+    val points = totals.points
     val best = GymCalculator.personalBests(finishedData, setData).firstOrNull { it.exerciseId == exerciseId }
 
     GymPage {
@@ -394,7 +396,7 @@ fun ExerciseProgressScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 StatBox(
                     label = "Bestleistung",
-                    value = GymFormat.setText(best.bestWeightKg, best.repsAtBest),
+                    value = GymFormat.setText(best.kind, best.bestWeightKg, best.repsAtBest),
                     modifier = Modifier.weight(1f)
                 )
                 StatBox(
@@ -408,11 +410,7 @@ fun ExerciseProgressScreen(
         }
 
         Text(
-            text = when (best?.kind) {
-                ExerciseKind.TIME -> "LÄNGSTE ZEIT PRO TRAINING"
-                ExerciseKind.ASSISTED -> "GERINGSTE UNTERSTÜTZUNG PRO TRAINING"
-                else -> "HÖCHSTGEWICHT PRO TRAINING"
-            },
+            text = GymFormat.totalLabel(totals.metric),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -423,7 +421,7 @@ fun ExerciseProgressScreen(
             ForgeCard(modifier = Modifier.fillMaxWidth()) {
                 GymLineChart(
                     epochDays = points.map { it.dateEpochDay },
-                    values = points.map { it.maxWeightKg },
+                    values = points.map { it.total },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -433,8 +431,13 @@ fun ExerciseProgressScreen(
 
         GroupLabel("Pro Training")
 
+        // Neueste zuerst. Das Training davor steht in der Liste direkt dahinter.
+        val newestFirst = points.reversed()
+
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            points.reversed().forEach { point ->
+            newestFirst.forEachIndexed { index, point ->
+                val previous = newestFirst.getOrNull(index + 1)
+
                 ForgeCard(modifier = Modifier.fillMaxWidth()) {
                     Row(
                         modifier = Modifier
@@ -442,15 +445,35 @@ fun ExerciseProgressScreen(
                             .padding(horizontal = 16.dp, vertical = 14.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            text = GymFormat.date(point.dateEpochDay),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = GymFormat.metric(best?.kind ?: ExerciseKind.REPS, point.maxWeightKg),
-                            style = MaterialTheme.typography.titleMedium
-                        )
+                        Column {
+                            Text(
+                                text = GymFormat.date(point.dateEpochDay),
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Text(
+                                text = "${point.setCount} Sätze",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
+                            Text(
+                                text = GymFormat.total(totals.metric, point.total),
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            if (previous != null) {
+                                Text(
+                                    text = GymFormat.totalDelta(
+                                        totals.metric,
+                                        point.total - previous.total,
+                                        previous.total
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                     }
                 }
             }

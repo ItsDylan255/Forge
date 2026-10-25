@@ -40,8 +40,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -81,7 +79,6 @@ fun WorkoutScreen(
     val allSessions by viewModel.sessions.collectAsStateWithLifecycle()
     val restTimer by viewModel.restTimer.collectAsStateWithLifecycle()
 
-    val haptic = LocalHapticFeedback.current
 
     // Benachrichtigung mit Restzeit: ab Android 13 muss sie erlaubt werden (Abfrage nur wenn nötig)
     val context = LocalContext.current
@@ -122,10 +119,8 @@ fun WorkoutScreen(
         val wait = timer.endsAtMillis - System.currentTimeMillis()
         if (wait > 0) delay(wait)
 
-        // Kurzes Signal, aber nur wenn die Pause gerade erst abgelaufen ist
-        if (System.currentTimeMillis() - timer.endsAtMillis < 3_000) {
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-        }
+        // Das Signal (Ton und Vibration) kommt vom Dienst, damit es auch bei gesperrtem Bildschirm
+        // und nur einmal ertönt
         viewModel.skipRest()
     }
 

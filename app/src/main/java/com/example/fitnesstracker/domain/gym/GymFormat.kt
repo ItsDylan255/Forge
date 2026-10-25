@@ -8,6 +8,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.abs
 
 object GymFormat {
 
@@ -136,6 +137,37 @@ object GymFormat {
                     "\u2191 Letztes Mal alle Sätze bei $repsMax Sek. oder mehr: Steigern möglich (Zusatzgewicht oder schwerere Variante)."
             }
         }
+
+    // ---------- Gesamt-Verlauf einer Übung ----------
+
+    /** Überschrift des Verlaufs je Messgröße. */
+    fun totalLabel(metric: TotalMetric): String = when (metric) {
+        TotalMetric.VOLUME -> "GESAMTVOLUMEN PRO TRAINING"
+        TotalMetric.REPS -> "WIEDERHOLUNGEN GESAMT PRO TRAINING"
+        TotalMetric.TIME -> "GESAMTZEIT PRO TRAINING"
+    }
+
+    /** Summe eines Trainings: "1.240 kg", "24 Wdh." oder "2:30 Min". */
+    fun total(metric: TotalMetric, value: Double): String = when (metric) {
+        TotalMetric.VOLUME -> volume(value)
+        TotalMetric.REPS -> "${Math.round(value)} Wdh."
+        TotalMetric.TIME -> secondsLabel(Math.round(value).toInt())
+    }
+
+    /** Veränderung zum Training davor: "+120 kg · +10 %", "−80 kg · −8 %". Ohne Vergleichswert kein Prozent. */
+    fun totalDelta(metric: TotalMetric, delta: Double, previous: Double): String {
+        val sign = when {
+            delta > 0 -> "+"
+            delta < 0 -> "\u2212"
+            else -> "\u00B1"
+        }
+        val percent = if (previous > 0.0) {
+            " \u00B7 $sign${Math.round(abs(delta) / previous * 100.0)} %"
+        } else {
+            ""
+        }
+        return "$sign${total(metric, abs(delta))}$percent"
+    }
 
     fun date(epochDay: Long): String = LocalDate.ofEpochDay(epochDay).format(dateFormatter)
 

@@ -6,18 +6,15 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.media.AudioManager
-import android.media.ToneGenerator
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
-import android.os.VibrationEffect
-import android.os.Vibrator
 import androidx.core.app.NotificationCompat
 import com.example.fitnesstracker.MainActivity
 import com.example.fitnesstracker.R
+import com.example.fitnesstracker.data.local.WorkoutPreferences
 import com.example.fitnesstracker.domain.gym.WorkoutNotificationPlanner
 
 /**
@@ -36,6 +33,9 @@ class WorkoutService : Service() {
     private var restTotal = 0L
     private var restLabel = ""
 
+    /** true, sobald für die aktuelle Pause das Signal kam (oder sie schon vorbei war). */
+    private var restSignalled = true
+
     /** Aktualisiert den Balken jede Sekunde und löst am Ende das Signal aus. */
     private val tick = object : Runnable {
         override fun run() {
@@ -44,7 +44,10 @@ class WorkoutService : Service() {
                 notifyNow(now)
                 handler.postDelayed(this, (restEndsAt - now).coerceIn(50L, 1000L))
             } else {
-                signalRestOver()
+                if (!restSignalled) {
+                    restSignalled = true
+                    signalRestOver()
+                }
                 releaseWakeLock()
                 notifyNow(now)
             }
@@ -68,17 +71,30 @@ class WorkoutService : Service() {
             return START_NOT_STICKY
         }
 
+        val now = System.currentTimeMillis()
+        val newEndsAt = intent.getLongExtra(EXTRA_REST_ENDS_AT, 0L)
+
+        // Die App beendet eine abgelaufene Pause im selben Moment, in dem der Dienst das Signal geben
+        // wollte. Endete die alte Pause gerade erst (und wurde nicht vorher übersprungen), kommt das
+        // Signal deshalb jetzt, genau einmal.
+        if (restEndsAt > 0L && !restSignalled && newEndsAt != restEndsAt &&
+            restEndsAt <= now + SIGNAL_TOLERANCE_MILLIS
+        ) {
+            signalRestOver()
+        }
+        // Eine bereits abgelaufene Pause (zum Beispiel beim erneuten Senden) meldet nichts mehr
+        if (newEndsAt != restEndsAt) restSignalled = newEndsAt <= now
+
         sessionName = intent.getStringExtra(EXTRA_SESSION_NAME).orEmpty()
         startedAt = intent.getLongExtra(EXTRA_STARTED_AT, System.currentTimeMillis())
-        restEndsAt = intent.getLongExtra(EXTRA_REST_ENDS_AT, 0L)
+        restEndsAt = newEndsAt
         restTotal = intent.getLongExtra(EXTRA_REST_TOTAL, 0L)
         restLabel = intent.getStringExtra(EXTRA_REST_LABEL).orEmpty()
 
-        // Eine neue oder übersprungene Pause ersetzt die alte, ohne Signal
+        // Eine neue oder übersprungene Pause ersetzt die alte
         handler.removeCallbacks(tick)
         releaseWakeLock()
 
-        val now = System.currentTimeMillis()
         val notification = buildNotification(now)
         if (Build.VERSION.SDK_INT >= 34) {
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
@@ -135,19 +151,10 @@ class WorkoutService : Service() {
         getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification(now))
     }
 
-    /** Doppelter Signalton und kurze Vibration. Der Ton folgt der Benachrichtigungs-Lautstärke. */
+    /** Signalton und Vibration, so wie in den Einstellungen gewählt. */
     private fun signalRestOver() {
-        try {
-            val tone = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 90)
-            tone.startTone(ToneGenerator.TONE_PROP_BEEP2, 700)
-            handler.postDelayed({ tone.release() }, 1_200L)
-        } catch (_: RuntimeException) {
-            // Kein Ton möglich (zum Beispiel Audio belegt): die Vibration bleibt
-        }
-
-        getSystemService(Vibrator::class.java)?.vibrate(
-            VibrationEffect.createOneShot(500L, VibrationEffect.DEFAULT_AMPLITUDE)
-        )
+        val prefs = WorkoutPreferences(this)
+        RestSignal.play(this, prefs.isSoundEnabled(), prefs.isVibrationEnabled())
     }
 
     private fun acquireWakeLock(timeoutMillis: Long) {
@@ -172,5 +179,8 @@ class WorkoutService : Service() {
 
         private const val CHANNEL_ID = "workout"
         private const val NOTIFICATION_ID = 1001
+
+        /** So knapp vor dem Ende gilt eine Pause als abgelaufen. */
+        private const val SIGNAL_TOLERANCE_MILLIS = 400L
     }
 }

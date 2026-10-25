@@ -6,12 +6,14 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.fitnesstracker.data.local.DatabaseProvider
 import com.example.fitnesstracker.data.local.StepPreferences
 import com.example.fitnesstracker.data.repository.StepRepository
-import java.time.LocalDate
+import com.example.fitnesstracker.domain.steps.StepDayBoundary
+import java.time.ZoneId
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -47,8 +49,15 @@ class StepsViewModel(application: Application) : AndroidViewModel(application) {
     private val listener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
             val total = event.values.firstOrNull()?.toLong() ?: return
+            // Der Zeitstempel des Sensors zeigt, an welchem Tag die Schritte gegangen wurden
+            val day = StepDayBoundary.dayOfEvent(
+                event.timestamp,
+                SystemClock.elapsedRealtimeNanos(),
+                System.currentTimeMillis(),
+                ZoneId.systemDefault()
+            )
             viewModelScope.launch {
-                repository.recordSensorTotal(total, LocalDate.now().toEpochDay())
+                repository.recordSensorTotal(total, day)
             }
         }
 
