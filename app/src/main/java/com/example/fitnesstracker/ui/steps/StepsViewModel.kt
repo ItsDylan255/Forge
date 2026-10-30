@@ -3,38 +3,30 @@ package com.example.fitnesstracker.ui.steps
 import android.app.Application
 import android.content.Context
 import android.hardware.Sensor
-import android.hardware.SensorEvent
-import android.hardware.SensorEventListener
 import android.hardware.SensorManager
-import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.fitnesstracker.data.local.DatabaseProvider
 import com.example.fitnesstracker.data.local.StepPreferences
 import com.example.fitnesstracker.data.repository.StepRepository
-import com.example.fitnesstracker.domain.steps.StepDayBoundary
-import java.time.ZoneId
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 
+/** Schritte-Screen: zeigt die Tageswerte. Gezählt wird vom StepCounterService, nicht hier. */
 class StepsViewModel(application: Application) : AndroidViewModel(application) {
 
     private val database = DatabaseProvider.getDatabase(application)
 
     private val repository = StepRepository(
-        dao = database.stepEntryDao(),
+        entryDao = database.stepEntryDao(),
+        sampleDao = database.stepSampleDao(),
         prefs = StepPreferences(application)
     )
 
-    private val sensorManager =
-        application.getSystemService(Context.SENSOR_SERVICE) as SensorManager
-
-    private val stepSensor: Sensor? =
-        sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
-
     /** false = Gerät hat keinen Schrittzähler-Sensor. */
-    val isSensorAvailable: Boolean = stepSensor != null
+    val isSensorAvailable: Boolean =
+        (application.getSystemService(Context.SENSOR_SERVICE) as SensorManager)
+            .getDefaultSensor(Sensor.TYPE_STEP_COUNTER) != null
 
     val entries = repository.observeEntries().stateIn(
         scope = viewModelScope,
@@ -44,50 +36,7 @@ class StepsViewModel(application: Application) : AndroidViewModel(application) {
 
     val stepGoal = repository.stepGoal
 
-    private var isListening = false
-
-    private val listener = object : SensorEventListener {
-        override fun onSensorChanged(event: SensorEvent) {
-            val total = event.values.firstOrNull()?.toLong() ?: return
-            // Der Zeitstempel des Sensors zeigt, an welchem Tag die Schritte gegangen wurden
-            val day = StepDayBoundary.dayOfEvent(
-                event.timestamp,
-                SystemClock.elapsedRealtimeNanos(),
-                System.currentTimeMillis(),
-                ZoneId.systemDefault()
-            )
-            viewModelScope.launch {
-                repository.recordSensorTotal(total, day)
-            }
-        }
-
-        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
-    }
-
-    /** Registriert den Sensor. Ruft man es mehrfach auf, passiert nichts Zusätzliches. */
-    fun startListening() {
-        val sensor = stepSensor ?: return
-        if (isListening) return
-
-        isListening = sensorManager.registerListener(
-            listener,
-            sensor,
-            SensorManager.SENSOR_DELAY_NORMAL
-        )
-    }
-
-    fun stopListening() {
-        if (!isListening) return
-        sensorManager.unregisterListener(listener)
-        isListening = false
-    }
-
     fun setStepGoal(goal: Int) {
         repository.setStepGoal(goal)
-    }
-
-    override fun onCleared() {
-        stopListening()
-        super.onCleared()
     }
 }

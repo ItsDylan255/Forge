@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.fitnesstracker.data.local.DatabaseProvider
 import com.example.fitnesstracker.data.local.GymExercise
+import com.example.fitnesstracker.data.local.GymPlan
 import com.example.fitnesstracker.data.local.GymRoutine
 import com.example.fitnesstracker.data.local.GymRoutineExercise
 import com.example.fitnesstracker.data.local.GymSession
@@ -12,6 +13,9 @@ import com.example.fitnesstracker.data.local.GymSet
 import com.example.fitnesstracker.domain.gym.ExerciseKind
 import com.example.fitnesstracker.domain.gym.GymInputParser
 import com.example.fitnesstracker.domain.gym.GymParseResult
+import com.example.fitnesstracker.domain.gym.PlanRef
+import com.example.fitnesstracker.domain.gym.RoutinePlans
+import com.example.fitnesstracker.domain.gym.RoutineRef
 import com.example.fitnesstracker.domain.gym.SetSide
 import com.example.fitnesstracker.service.WorkoutNotifier
 import java.time.LocalDate
@@ -49,7 +53,17 @@ data class RoutineEditItem(
     val kind: ExerciseKind = ExerciseKind.REPS
 )
 
-data class RoutineEditData(val name: String, val items: List<RoutineEditItem>)
+data class RoutineEditData(val name: String, val planId: Long?, val items: List<RoutineEditItem>)
+
+fun GymRoutine.toRef() = RoutineRef(
+    id = id,
+    name = name,
+    planId = planId,
+    planPosition = planPosition,
+    archived = archivedAt != null
+)
+
+fun GymPlan.toRef() = PlanRef(id = id, name = name, archived = archivedAt != null)
 
 /**
  * Der laufende Pausen-Countdown. Er liegt im ViewModel, damit er beim Wechsel zwischen
@@ -71,6 +85,10 @@ class GymViewModel(application: Application) : AndroidViewModel(application) {
     )
 
     val routines = dao.observeRoutines().stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList()
+    )
+
+    val plans = dao.observePlans().stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList()
     )
 
@@ -228,12 +246,13 @@ class GymViewModel(application: Application) : AndroidViewModel(application) {
                 kind = ExerciseKind.fromCode(exercise.kind)
             )
         }
-        return RoutineEditData(routine.name, items)
+        return RoutineEditData(routine.name, routine.planId, items)
     }
 
     fun saveRoutine(
         routineId: Long?,
         name: String,
+        planId: Long?,
         items: List<RoutineItemInput>,
         onDone: () -> Unit
     ) {
@@ -241,9 +260,19 @@ class GymViewModel(application: Application) : AndroidViewModel(application) {
             val now = System.currentTimeMillis()
             val existing = routineId?.let { dao.getRoutine(it) }
 
+            // Neu im Plan: hinten anhängen. Gleicher Plan: Position behalten.
+            val position = when {
+                planId == null -> 0
+                existing?.planId == planId -> existing.planPosition
+                else -> dao.maxPlanPosition(planId) + 1
+            }
+
             val routine = GymRoutine(
                 id = existing?.id ?: 0L,
                 name = name.trim(),
+                planId = planId,
+                planPosition = position,
+                archivedAt = existing?.archivedAt,
                 createdAt = existing?.createdAt ?: now,
                 updatedAt = now
             )
@@ -272,6 +301,97 @@ class GymViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { dao.deleteRoutine(routineId) }
     }
 
+    /** Archiviert die Routine ([archived] true) oder holt sie zurück. Der Verlauf bleibt unverändert. */
+    fun setRoutineArchived(routineId: Long, archived: Boolean) {
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            dao.setRoutineArchived(routineId, if (archived) now else null, now)
+        }
+    }
+
+    /** Verschiebt die Routine innerhalb ihres Plans um eine Stelle. */
+    fun moveRoutineInPlan(routineId: Long, up: Boolean) {
+        viewModelScope.launch {
+            val planId = dao.getRoutine(routineId)?.planId ?: return@launch
+            val inPlan = RoutinePlans.activeRoutines(
+                routines.value.filter { it.planId == planId }.map { it.toRef() },
+                plans.value.map { it.toRef() }
+            )
+            dao.setPlanOrder(RoutinePlans.moved(inPlan, routineId, up), System.currentTimeMillis())
+        }
+    }
+
+    // ---------- Trainingspläne ----------
+
+    /**
+     * Legt einen Plan an ([planId] == null) oder benennt ihn um.
+     * [onDone] bekommt eine Fehlermeldung (oder null) und die Id des Plans.
+     */
+    fun savePlan(planId: Long?, name: String, onDone: (error: String?, savedId: Long?) -> Unit) {
+        viewModelScope.launch {
+            val cleanName = when (val result = GymInputParser.parseName(name)) {
+                is GymParseResult.Valid -> result.value
+                is GymParseResult.Invalid -> {
+                    onDone(result.message, null)
+                    return@launch
+                }
+            }
+
+            val duplicate = dao.findPlanByName(cleanName)
+            if (duplicate != null && duplicate.id != planId) {
+                onDone("Einen Plan mit diesem Namen gibt es schon.", null)
+                return@launch
+            }
+
+            val now = System.currentTimeMillis()
+            if (planId == null) {
+                val newId = dao.insertPlan(GymPlan(name = cleanName, createdAt = now, updatedAt = now))
+                onDone(null, newId)
+            } else {
+                dao.getPlan(planId)?.let { dao.updatePlan(it.copy(name = cleanName, updatedAt = now)) }
+                onDone(null, planId)
+            }
+        }
+    }
+
+    /** Archiviert den Plan samt Routinen. Die Routinen selbst werden nicht verändert. */
+    fun setPlanArchived(planId: Long, archived: Boolean) {
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            dao.setPlanArchived(planId, if (archived) now else null, now)
+        }
+    }
+
+    /**
+     * Kopiert den Plan samt aktiven Routinen unter neuem Namen. Mit [deload] hat jede Übung einen Satz
+     * weniger (mindestens einer). [onDone] bekommt eine Fehlermeldung oder null.
+     */
+    fun duplicatePlan(planId: Long, name: String, deload: Boolean, onDone: (error: String?) -> Unit) {
+        viewModelScope.launch {
+            val cleanName = when (val result = GymInputParser.parseName(name)) {
+                is GymParseResult.Valid -> result.value
+                is GymParseResult.Invalid -> {
+                    onDone(result.message)
+                    return@launch
+                }
+            }
+            if (dao.findPlanByName(cleanName) != null) {
+                onDone("Einen Plan mit diesem Namen gibt es schon.")
+                return@launch
+            }
+
+            dao.duplicatePlan(planId, cleanName, System.currentTimeMillis()) { item ->
+                if (deload) item.copy(plannedSets = (item.plannedSets - 1).coerceAtLeast(1)) else item
+            }
+            onDone(null)
+        }
+    }
+
+    /** Löscht nur den Plan, seine Routinen sind danach ohne Plan. */
+    fun deletePlan(planId: Long) {
+        viewModelScope.launch { dao.deletePlan(planId) }
+    }
+
     // ---------- Einheiten ----------
 
     /** Startet eine Einheit. Läuft schon eine, wird keine zweite angelegt. */
@@ -281,11 +401,14 @@ class GymViewModel(application: Application) : AndroidViewModel(application) {
 
             if (running == null) {
                 val routine = routineId?.let { dao.getRoutine(it) }
+                val plan = routine?.planId?.let { dao.getPlan(it) }
                 val now = System.currentTimeMillis()
                 dao.insertSession(
                     GymSession(
                         routineId = routine?.id,
                         routineName = routine?.name ?: "Freies Workout",
+                        planId = plan?.id,
+                        planName = plan?.name,
                         dateEpochDay = LocalDate.now().toEpochDay(),
                         startedAt = now,
                         endedAt = null,

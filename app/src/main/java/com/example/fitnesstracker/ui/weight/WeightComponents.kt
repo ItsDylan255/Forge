@@ -45,6 +45,7 @@ import com.example.fitnesstracker.domain.weight.GoalProgress
 import com.example.fitnesstracker.domain.weight.WeightChange
 import com.example.fitnesstracker.domain.weight.WeightFormat
 import com.example.fitnesstracker.domain.weight.WeightHistoryItem
+import com.example.fitnesstracker.domain.weight.WeightChartSlice
 import com.example.fitnesstracker.domain.weight.WeightMeasurement
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.unit.Dp
@@ -324,21 +325,24 @@ internal fun GoalGrid(
 
 @Composable
 internal fun ChartCard(
-    points: List<WeightMeasurement>,
+    slice: WeightChartSlice?,
     targetKg: Double?,
     height: Dp,
-    onPointClick: (entryId: Long) -> Unit
+    showPoints: Boolean,
+    onPointClick: (entryId: Long) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     ForgeCard(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(height)
     ) {
-        if (points.isNotEmpty()) {
+        if (slice != null && slice.visible.isNotEmpty()) {
             WeightChart(
-                measurements = points,
+                slice = slice,
                 targetKg = targetKg,
                 modifier = Modifier.fillMaxSize(),
+                showPoints = showPoints,
                 onPointClick = { onPointClick(it.id) }
             )
         } else {

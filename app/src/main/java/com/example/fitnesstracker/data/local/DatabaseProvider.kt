@@ -392,6 +392,67 @@ private val MIGRATION_12_13 = object : Migration(12, 13) {
     }
 }
 
+// Neu: Messwerte des Schrittzählers (Grundlage der neuen Schrittberechnung).
+// Unmögliche Tageswerte (mehr als 60.000 Schritte) aus der alten Zählung werden entfernt.
+private val MIGRATION_13_14 = object : Migration(13, 14) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `step_sample` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `timeMillis` INTEGER NOT NULL,
+                `total` INTEGER NOT NULL,
+                `bootMillis` INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_step_sample_timeMillis` ON `step_sample` (`timeMillis`)")
+        db.execSQL("DELETE FROM `step_entry` WHERE `steps` > 60000")
+    }
+}
+
+// Neu: Trainingspläne und Archiv für Routinen und Pläne.
+// Bestehende Routinen bleiben aktiv und sind ohne Plan.
+private val MIGRATION_14_15 = object : Migration(14, 15) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `gym_plan` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `name` TEXT NOT NULL,
+                `archivedAt` INTEGER,
+                `createdAt` INTEGER NOT NULL,
+                `updatedAt` INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL("ALTER TABLE `gym_routine` ADD COLUMN `planId` INTEGER")
+        db.execSQL("ALTER TABLE `gym_routine` ADD COLUMN `planPosition` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `gym_routine` ADD COLUMN `archivedAt` INTEGER")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_gym_routine_planId` ON `gym_routine` (`planId`)")
+    }
+}
+
+// Neu: Einheiten merken sich ihren Trainingsplan (für den Plan-Fortschritt).
+// Bestehende Einheiten bekommen den Plan, zu dem ihre Routine gerade gehört.
+// Die alte, nie benutzte Tabelle workout_routines fällt weg.
+private val MIGRATION_15_16 = object : Migration(15, 16) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `gym_session` ADD COLUMN `planId` INTEGER")
+        db.execSQL("ALTER TABLE `gym_session` ADD COLUMN `planName` TEXT")
+        db.execSQL(
+            """
+            UPDATE `gym_session` SET
+                `planId` = (SELECT r.`planId` FROM `gym_routine` r WHERE r.`id` = `gym_session`.`routineId`),
+                `planName` = (SELECT p.`name` FROM `gym_routine` r JOIN `gym_plan` p ON p.`id` = r.`planId`
+                              WHERE r.`id` = `gym_session`.`routineId`)
+            WHERE `routineId` IS NOT NULL
+            """.trimIndent()
+        )
+        db.execSQL("DROP TABLE IF EXISTS `workout_routines`")
+    }
+}
+
 object DatabaseProvider {
 
     @Volatile
@@ -404,7 +465,7 @@ object DatabaseProvider {
                 AppDatabase::class.java,
                 "fitness_tracker_database"
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
                 .build()
                 .also { database ->
                     INSTANCE = database

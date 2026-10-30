@@ -71,11 +71,16 @@ private fun groupRanges(flags: List<Boolean>): List<IntRange> {
 fun RoutineEditorScreen(
     viewModel: GymViewModel,
     routineId: Long?,
-    onDone: () -> Unit
+    onDone: () -> Unit,
+    /** Vorauswahl des Plans beim Anlegen (z. B. „+ Routine“ unter einem Plan). */
+    initialPlanId: Long? = null
 ) {
     val exercises by viewModel.exercises.collectAsStateWithLifecycle()
+    val plans by viewModel.plans.collectAsStateWithLifecycle()
 
     var name by remember { mutableStateOf("") }
+    var planId by remember { mutableStateOf(initialPlanId) }
+    var showPlanPicker by remember { mutableStateOf(false) }
     val drafts = remember { mutableStateListOf<RoutineItemDraft>() }
     var nextKey by remember { mutableStateOf(1L) }
     var loaded by remember { mutableStateOf(routineId == null) }
@@ -108,6 +113,7 @@ fun RoutineEditorScreen(
         if (routineId != null) {
             viewModel.loadRoutineForEdit(routineId)?.let { data ->
                 name = data.name
+                planId = data.planId
                 drafts.clear()
                 data.items.forEach { item ->
                     drafts.add(
@@ -223,7 +229,7 @@ fun RoutineEditorScreen(
         }
 
         error = null
-        viewModel.saveRoutine(routineId, cleanName, inputs) { onDone() }
+        viewModel.saveRoutine(routineId, cleanName, planId, inputs) { onDone() }
     }
 
     GymPage {
@@ -250,6 +256,15 @@ fun RoutineEditorScreen(
             placeholder = { Text("z. B. Push Day") },
             singleLine = true
         )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedButton(onClick = { showPlanPicker = true }, modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = "Trainingsplan: " +
+                        (plans.firstOrNull { it.id == planId }?.name ?: "Kein Plan")
+            )
+        }
 
         GroupLabel("Übungen")
 
@@ -311,6 +326,14 @@ fun RoutineEditorScreen(
 
         if (routineId != null) {
             Spacer(modifier = Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = {
+                    viewModel.setRoutineArchived(routineId, archived = true)
+                    onDone()
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Routine archivieren") }
+
             TextButton(onClick = { showDelete = true }, modifier = Modifier.fillMaxWidth()) {
                 Text("Routine löschen", color = MaterialTheme.colorScheme.error)
             }
@@ -340,6 +363,19 @@ fun RoutineEditorScreen(
                 showPicker = false
             },
             onDismiss = { showPicker = false }
+        )
+    }
+
+    if (showPlanPicker) {
+        PlanPickerDialog(
+            viewModel = viewModel,
+            plans = plans,
+            selectedId = planId,
+            onPick = {
+                planId = it
+                showPlanPicker = false
+            },
+            onDismiss = { showPlanPicker = false }
         )
     }
 

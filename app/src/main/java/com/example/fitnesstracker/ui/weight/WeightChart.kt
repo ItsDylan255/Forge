@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -24,6 +25,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.fitnesstracker.domain.weight.WeightChartSlice
 import com.example.fitnesstracker.domain.weight.WeightMeasurement
 import com.example.fitnesstracker.ui.theme.ForgeColors
 import java.time.LocalDate
@@ -41,23 +43,28 @@ import kotlin.math.roundToInt
  * Liniendiagramm für Gewichtsmessungen. Alle Werte sind echte Messungen, nichts wird interpoliert.
  *
  * - Y-Achse mit "runden" Schritten und gepunkteten Hilfslinien
- * - X-Achse zeitlich korrekt (Abstand der Punkte = Abstand der Tage)
- * - Hohle Punkte mit Wert-Label
+ * - X-Achse zeitlich korrekt über das ganze Fenster des Ausschnitts (Abstand der Punkte = Abstand der Tage)
+ * - Die Linie läuft bis zum Rand weiter, wenn es davor oder danach Messungen gibt
+ * - Hohle Punkte mit Wert-Label (nur mit [showPoints])
  * - Zielgewicht als gestrichelte Linie
  * - Tippen auf einen Punkt meldet die zugehörige Messung über [onPointClick]
  *
  * Die Größe bestimmt der Aufrufer über [modifier] (z. B. fillMaxSize in einer Karte mit fester Höhe).
  *
- * @param measurements chronologisch aufsteigende echte Messungen
- * @param targetKg     optional: Zielgewicht für die gestrichelte Linie
+ * @param slice    sichtbarer Ausschnitt (echte Messungen, chronologisch aufsteigend)
+ * @param targetKg optional: Zielgewicht für die gestrichelte Linie
  */
 @Composable
 fun WeightChart(
-    measurements: List<WeightMeasurement>,
+    slice: WeightChartSlice,
     targetKg: Double?,
     modifier: Modifier = Modifier,
+    showPoints: Boolean = true,
     onPointClick: ((WeightMeasurement) -> Unit)? = null
 ) {
+    val measurements = slice.visible
+    val line = slice.line
+
     if (measurements.isEmpty()) {
         Box(
             modifier = modifier.padding(16.dp),
@@ -95,13 +102,13 @@ fun WeightChart(
     Canvas(
         modifier = modifier
             .padding(horizontal = 8.dp, vertical = 8.dp)
-            .pointerInput(measurements, targetKg, onPointClick) {
+            .pointerInput(slice, targetKg, onPointClick) {
                 if (onPointClick == null) return@pointerInput
                 val density: Density = this
 
                 detectTapGestures(onTap = { tap ->
                     val g = ChartGeometry(
-                        measurements, targetKg,
+                        measurements, targetKg, slice.startDay, slice.endDay,
                         size.width.toFloat(), size.height.toFloat(), density
                     )
                     if (!g.isDrawable) return@detectTapGestures
@@ -125,7 +132,7 @@ fun WeightChart(
                 })
             }
     ) {
-        val g = ChartGeometry(measurements, targetKg, size.width, size.height, this)
+        val g = ChartGeometry(measurements, targetKg, slice.startDay, slice.endDay, size.width, size.height, this)
         if (!g.isDrawable) return@Canvas
 
         val weights = measurements.map { it.weightKg.toFloat() }
@@ -176,28 +183,30 @@ fun WeightChart(
             )
         }
 
-        // ---------- Linie durch die Messpunkte ----------
-        if (measurements.size >= 2) {
+        // ---------- Linie durch die Messpunkte (inkl. Nachbarn außerhalb, am Rand abgeschnitten) ----------
+        if (line.size >= 2) {
             val path = Path().apply {
-                moveTo(xFor(0), g.yFor(weights[0]))
-                for (i in 1 until measurements.size) {
-                    lineTo(xFor(i), g.yFor(weights[i]))
+                moveTo(g.xForDay(line[0].dateEpochDay), g.yFor(line[0].weightKg.toFloat()))
+                for (i in 1 until line.size) {
+                    lineTo(g.xForDay(line[i].dateEpochDay), g.yFor(line[i].weightKg.toFloat()))
                 }
             }
-            drawPath(
-                path = path,
-                color = lineColor,
-                style = Stroke(
-                    width = 3.dp.toPx(),
-                    cap = StrokeCap.Round,
-                    join = StrokeJoin.Round
+            clipRect(left = g.chartLeft, top = 0f, right = g.chartRight, bottom = g.chartBottom) {
+                drawPath(
+                    path = path,
+                    color = lineColor,
+                    style = Stroke(
+                        width = 3.dp.toPx(),
+                        cap = StrokeCap.Round,
+                        join = StrokeJoin.Round
+                    )
                 )
-            )
+            }
         }
 
         // ---------- Hohle Punkte ----------
         val pointRadius = 5.dp.toPx()
-        measurements.forEachIndexed { index, _ ->
+        if (showPoints) measurements.forEachIndexed { index, _ ->
             val center = Offset(xFor(index), g.yFor(weights[index]))
             drawCircle(color = pointFillColor, radius = pointRadius, center = center)
             drawCircle(
@@ -217,7 +226,7 @@ fun WeightChart(
             else -> 5
         }
 
-        measurements.forEachIndexed { index, measurement ->
+        if (showPoints) measurements.forEachIndexed { index, measurement ->
             if (index % labelStep != 0 && index != count - 1) return@forEachIndexed
 
             val valueText = String.format(Locale.GERMANY, "%.1f", measurement.weightKg)
@@ -267,6 +276,8 @@ fun WeightChart(
 private class ChartGeometry(
     measurements: List<WeightMeasurement>,
     targetKg: Double?,
+    startDay: Long,
+    endDay: Long,
     width: Float,
     height: Float,
     density: Density
@@ -285,8 +296,8 @@ private class ChartGeometry(
     val step: Float
     private val valueRange: Float
 
-    val firstDay: Long = measurements.first().dateEpochDay
-    val daySpan: Float = (measurements.last().dateEpochDay - firstDay).toFloat()
+    val firstDay: Long = startDay
+    val daySpan: Float = (endDay - startDay).toFloat()
 
     init {
         val weights = measurements.map { it.weightKg.toFloat() }

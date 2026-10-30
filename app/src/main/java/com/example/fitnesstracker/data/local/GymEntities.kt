@@ -26,10 +26,30 @@ data class GymExercise(
     val updatedAt: Long
 )
 
-@Entity(tableName = "gym_routine")
+/** Ein Trainingsplan fasst Routinen zusammen (z. B. „Fitnessbasic“). archivedAt == null = aktiv. */
+@Entity(tableName = "gym_plan")
+data class GymPlan(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0L,
+    val name: String,
+    val archivedAt: Long? = null,
+    val createdAt: Long,
+    val updatedAt: Long
+)
+
+/**
+ * Eine Routine gehört zu höchstens einem Plan ([planId] null = ohne Plan).
+ * [planPosition] ist die Reihenfolge im Plan, archivedAt == null = aktiv.
+ */
+@Entity(
+    tableName = "gym_routine",
+    indices = [Index(value = ["planId"])]
+)
 data class GymRoutine(
     @PrimaryKey(autoGenerate = true) val id: Long = 0L,
     val name: String,
+    val planId: Long? = null,
+    val planPosition: Int = 0,
+    val archivedAt: Long? = null,
     val createdAt: Long,
     val updatedAt: Long
 )
@@ -57,13 +77,16 @@ data class GymRoutineExercise(
 
 /**
  * Eine Trainingseinheit. endedAt == null bedeutet: läuft gerade.
- * Der Routinenname wird als Momentaufnahme gespeichert, damit der Verlauf erhalten bleibt.
+ * Routinen- und Planname werden als Momentaufnahme gespeichert, damit der Verlauf erhalten bleibt.
+ * [planId] null = Routine ohne Plan oder freies Workout.
  */
 @Entity(tableName = "gym_session")
 data class GymSession(
     @PrimaryKey(autoGenerate = true) val id: Long = 0L,
     val routineId: Long?,
     val routineName: String,
+    val planId: Long? = null,
+    val planName: String? = null,
     val dateEpochDay: Long,
     val startedAt: Long,
     val endedAt: Long?,
@@ -178,6 +201,78 @@ abstract class GymDao {
     open suspend fun deleteRoutine(id: Long) {
         deleteRoutineItems(id)
         deleteRoutineRow(id)
+    }
+
+    @Query("UPDATE gym_routine SET archivedAt = :archivedAt, updatedAt = :now WHERE id = :id")
+    abstract suspend fun setRoutineArchived(id: Long, archivedAt: Long?, now: Long)
+
+    @Query("UPDATE gym_routine SET planPosition = :position, updatedAt = :now WHERE id = :id")
+    abstract suspend fun setRoutinePlanPosition(id: Long, position: Int, now: Long)
+
+    @Query("SELECT COALESCE(MAX(planPosition), -1) FROM gym_routine WHERE planId = :planId")
+    abstract suspend fun maxPlanPosition(planId: Long): Int
+
+    /** Nummeriert die Routinen eines Plans in der Reihenfolge von [routineIds] neu (0, 1, 2 …). */
+    @Transaction
+    open suspend fun setPlanOrder(routineIds: List<Long>, now: Long) {
+        routineIds.forEachIndexed { index, id -> setRoutinePlanPosition(id, index, now) }
+    }
+
+    // ---------- Trainingspläne ----------
+
+    @Query("SELECT * FROM gym_plan ORDER BY name COLLATE NOCASE ASC")
+    abstract fun observePlans(): Flow<List<GymPlan>>
+
+    @Query("SELECT * FROM gym_plan WHERE id = :id")
+    abstract suspend fun getPlan(id: Long): GymPlan?
+
+    @Query("SELECT * FROM gym_plan WHERE name = :name COLLATE NOCASE LIMIT 1")
+    abstract suspend fun findPlanByName(name: String): GymPlan?
+
+    @Insert
+    abstract suspend fun insertPlan(plan: GymPlan): Long
+
+    @Update
+    abstract suspend fun updatePlan(plan: GymPlan)
+
+    @Query("UPDATE gym_plan SET archivedAt = :archivedAt, updatedAt = :now WHERE id = :id")
+    abstract suspend fun setPlanArchived(id: Long, archivedAt: Long?, now: Long)
+
+    @Query("UPDATE gym_routine SET planId = NULL, planPosition = 0 WHERE planId = :planId")
+    abstract suspend fun detachRoutinesFromPlan(planId: Long)
+
+    @Query("DELETE FROM gym_plan WHERE id = :id")
+    abstract suspend fun deletePlanRow(id: Long)
+
+    @Query("SELECT * FROM gym_routine WHERE planId = :planId AND archivedAt IS NULL ORDER BY planPosition ASC")
+    abstract suspend fun getActiveRoutinesOfPlan(planId: Long): List<GymRoutine>
+
+    /**
+     * Kopiert den Plan mit allen aktiven Routinen und ihren Übungen unter [newName].
+     * [adjustItem] darf jede kopierte Übung ändern (z. B. einen Satz weniger). Gibt die Id des neuen Plans zurück.
+     */
+    @Transaction
+    open suspend fun duplicatePlan(
+        planId: Long,
+        newName: String,
+        now: Long,
+        adjustItem: (GymRoutineExercise) -> GymRoutineExercise
+    ): Long {
+        val newPlanId = insertPlan(GymPlan(name = newName, createdAt = now, updatedAt = now))
+        getActiveRoutinesOfPlan(planId).forEach { routine ->
+            val newRoutineId = insertRoutine(
+                routine.copy(id = 0L, planId = newPlanId, archivedAt = null, createdAt = now, updatedAt = now)
+            )
+            insertRoutineItems(getRoutineItems(routine.id).map { adjustItem(it.copy(id = 0L, routineId = newRoutineId)) })
+        }
+        return newPlanId
+    }
+
+    /** Löscht nur den Plan. Seine Routinen bleiben erhalten und sind danach ohne Plan. */
+    @Transaction
+    open suspend fun deletePlan(id: Long) {
+        detachRoutinesFromPlan(id)
+        deletePlanRow(id)
     }
 
     // ---------- Trainingseinheiten ----------

@@ -13,15 +13,15 @@ data class StepBar(
 object StepChartData {
 
     /**
-     * Genau ein Balken pro Kalendertag der letzten [StepChartRange.days] Tage (inklusive heute),
-     * chronologisch aufsteigend. Tage ohne Eintrag haben 0 Schritte.
+     * Genau ein Balken pro Kalendertag der [StepChartRange.days] Tage bis einschließlich [endDay]
+     * (normalerweise heute), chronologisch aufsteigend. Tage ohne Eintrag haben 0 Schritte.
      */
-    fun barsFor(days: List<StepDay>, range: StepChartRange, today: Long): List<StepBar> {
+    fun barsFor(days: List<StepDay>, range: StepChartRange, endDay: Long): List<StepBar> {
         val stepsByDay = days.groupBy { it.dateEpochDay }
             .mapValues { (_, list) -> list.sumOf { it.steps } }
 
-        val start = today - (range.days - 1)
-        return (start..today).map { day -> StepBar(day, stepsByDay[day] ?: 0) }
+        val start = endDay - (range.days - 1)
+        return (start..endDay).map { day -> StepBar(day, stepsByDay[day] ?: 0) }
     }
 
     fun hasAnySteps(bars: List<StepBar>): Boolean = bars.any { it.steps > 0 }

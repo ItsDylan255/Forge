@@ -50,6 +50,7 @@ import com.example.fitnesstracker.domain.gym.GymCalculator
 import com.example.fitnesstracker.domain.gym.GymDefaults
 import com.example.fitnesstracker.domain.gym.LastPerformance
 import com.example.fitnesstracker.domain.gym.LoggedSet
+import com.example.fitnesstracker.domain.gym.OneRepMax
 import com.example.fitnesstracker.domain.gym.PlanItem
 import com.example.fitnesstracker.domain.gym.ProgressionHint
 import com.example.fitnesstracker.domain.gym.SetSide
@@ -236,10 +237,14 @@ fun WorkoutScreen(
                         val planned = plan.firstOrNull { it.exerciseId == exerciseId }
                         val kind = kindById[exerciseId] ?: ExerciseKind.REPS
 
-                        val last = GymCalculator.lastPerformance(
-                            exerciseId, current.id,
-                            allSessions.map { it.toData() }, allSets.map { it.toData() }
-                        )
+                        val sessionData = allSessions.map { it.toData() }
+                        val setData = allSets.map { it.toData() }
+                        val last = GymCalculator.lastPerformance(exerciseId, current.id, sessionData, setData)
+                        val record = if (kind == ExerciseKind.REPS) {
+                            OneRepMax.newRecord(exerciseId, current.id, sessionData, setData)
+                        } else {
+                            null
+                        }
                         val hint = if (planned != null && last != null) {
                             // Einseitige Übungen haben pro Satz zwei Einträge (rechts und links)
                             val setsPerRound = if (planned.unilateral) 2 else 1
@@ -261,6 +266,7 @@ fun WorkoutScreen(
                             lastSet = lastSet,
                             last = last,
                             hint = hint,
+                            record = record,
                             restActive = restTimer != null,
                             onAddSet = { weightKg, reps, side, restSeconds ->
                                 viewModel.addSet(current.id, exerciseId, name, weightKg, reps, side)
@@ -467,6 +473,8 @@ private fun ExerciseBlock(
     lastSet: GymSet?,
     last: LastPerformance?,
     hint: ProgressionHint,
+    /** Neues geschätztes 1RM in diesem Training (neu, vorher), sonst null. */
+    record: Pair<Double, Double>?,
     restActive: Boolean,
     onAddSet: (weightKg: Double, reps: Int, side: SetSide, restSeconds: Int) -> Unit,
     onDeleteSet: (Long) -> Unit
@@ -605,6 +613,17 @@ private fun ExerciseBlock(
                         color = muted
                     )
                 }
+            }
+
+            // ---------- Neuer Rekord (geschätztes 1RM) ----------
+            record?.let { (now, before) ->
+                Text(
+                    text = "Neuer Rekord! Geschätztes 1RM ${GymFormat.kg(OneRepMax.roundToPlate(now))} " +
+                            "(vorher ${GymFormat.kg(OneRepMax.roundToPlate(before))})",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
             }
 
             // ---------- Dezenter Hinweis zur Progression ----------

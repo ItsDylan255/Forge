@@ -1,5 +1,6 @@
 package com.example.fitnesstracker.ui.weight
 
+import com.example.fitnesstracker.ui.chart.chartPan
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -31,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.fitnesstracker.domain.chart.ChartWindow
 import com.example.fitnesstracker.domain.weight.ChartRange
 import com.example.fitnesstracker.domain.weight.WeightCalculator
 import com.example.fitnesstracker.domain.weight.WeightChartData
@@ -83,6 +85,8 @@ fun WeightScreen(
     // ---------- UI-Zustand ----------
     var selectedTab by rememberSaveable { mutableStateOf(0) } // 0 = Gewicht, 1 = Ziel
     var chartRange by rememberSaveable { mutableStateOf(ChartRange.WEEK) }
+    // Ende des sichtbaren Fensters; null = heute (bzw. letzter Eintrag)
+    var chartEnd by rememberSaveable { mutableStateOf<Long?>(null) }
 
     // Zielgewicht bearbeiten
     var showGoalDialog by rememberSaveable { mutableStateOf(false) }
@@ -116,7 +120,12 @@ fun WeightScreen(
     val stats = WeightCalculator.statistics(measurements, todayEpochDay)
     val change90Days = WeightCalculator.changeOverDays(measurements, 90, todayEpochDay)
 
-    val chartPoints = WeightChartData.pointsFor(measurements, chartRange, todayEpochDay)
+    // Das Fenster lässt sich zwischen erstem und letztem Eintrag verschieben
+    val firstDay = measurements.minOfOrNull { it.dateEpochDay } ?: todayEpochDay
+    val lastDay = maxOf(todayEpochDay, measurements.maxOfOrNull { it.dateEpochDay } ?: todayEpochDay)
+    val windowSpan = chartRange.days ?: 0
+    val windowEnd = ChartWindow.clampEnd(chartEnd ?: todayEpochDay, windowSpan, firstDay, lastDay)
+    val chartSlice = WeightChartData.sliceFor(measurements, chartRange, windowEnd)
 
     val goalProgress = goal?.let { currentGoal ->
         stats.latest?.let { latest ->
@@ -218,12 +227,20 @@ fun WeightScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             ChartCard(
-                points = chartPoints,
+                slice = chartSlice,
                 targetKg = goal?.targetWeightKg,
                 height = chartHeight,
+                // Punkte mit Werten nur in der Wochenansicht, sonst wird es zu voll
+                showPoints = chartRange == ChartRange.WEEK,
                 onPointClick = { entryId ->
                     isEditingEntry = false
                     selectedEntryId = entryId
+                },
+                modifier = Modifier.chartPan(
+                    enabled = chartRange.days != null && ChartWindow.canPan(windowSpan, firstDay, lastDay),
+                    visibleDays = windowSpan
+                ) { delta ->
+                    chartEnd = ChartWindow.clampEnd(windowEnd + delta, windowSpan, firstDay, lastDay)
                 }
             )
 
@@ -235,7 +252,10 @@ fun WeightScreen(
             ) {
                 RangeSelector(
                     selected = chartRange,
-                    onSelect = { chartRange = it },
+                    onSelect = {
+                        chartRange = it
+                        chartEnd = null
+                    },
                     modifier = Modifier.weight(1f)
                 )
 

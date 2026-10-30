@@ -12,7 +12,9 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import com.example.fitnesstracker.MainActivity
@@ -20,11 +22,11 @@ import com.example.fitnesstracker.R
 import com.example.fitnesstracker.data.local.DatabaseProvider
 import com.example.fitnesstracker.data.local.StepPreferences
 import com.example.fitnesstracker.data.repository.StepRepository
+import com.example.fitnesstracker.domain.steps.SampleData
 import com.example.fitnesstracker.domain.steps.StepCalculator
-import com.example.fitnesstracker.domain.steps.StepDayBoundary
 import com.example.fitnesstracker.domain.steps.StepFormat
+import com.example.fitnesstracker.domain.steps.StepSamples
 import java.time.LocalDate
-import java.time.ZoneId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -34,41 +36,70 @@ import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.launch
 
 /**
- * Zählt Schritte im Hintergrund. Android liefert Sensorwerte zuverlässig nur an Apps, die sichtbar
- * sind oder einen Vordergrund-Dienst haben. Der Dienst hält deshalb den Schrittzähler dauerhaft
- * angemeldet und zeigt eine kleine, stumme Benachrichtigung mit den Schritten von heute.
+ * Zählt Schritte im Hintergrund. Android liefert den Schrittzähler zuverlässig nur an Apps, die sichtbar
+ * sind oder einen Vordergrund-Dienst haben. Der Dienst hält ihn deshalb dauerhaft angemeldet und zeigt
+ * eine kleine, stumme Benachrichtigung mit den Schritten von heute.
+ *
+ * Der Dienst speichert nur Messwerte (Zeitpunkt, Rohwert, Gerätestart). Die Tageswerte berechnet das
+ * StepRepository daraus.
  */
 class StepCounterService : Service() {
 
+    private val handler = Handler(Looper.getMainLooper())
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
     private lateinit var sensorManager: SensorManager
     private lateinit var repository: StepRepository
     private lateinit var prefs: StepPreferences
 
     private var listening = false
+    private var notificationJob = false
 
-    /** Bis zu diesem Zeitpunkt zählen neue Werte noch zum Vortag (Nachtmessung um Mitternacht). */
-    @Volatile
-    private var midnightUntilMillis = 0L
+    /** Der neueste, noch nicht gespeicherte Wert. */
+    private var pending: SampleData? = null
+    private var lastStoreAt = 0L
 
     private val listener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
             val total = event.values.firstOrNull()?.toLong() ?: return
             val nowMillis = System.currentTimeMillis()
-            val zone = ZoneId.systemDefault()
+            val elapsedNanos = SystemClock.elapsedRealtimeNanos()
 
             // Der Zeitstempel des Sensors sagt, wann die Schritte gegangen wurden, auch wenn Android
-            // den Wert erst später liefert. In der Nachtmessung gilt der Vortag.
-            val day = if (nowMillis <= midnightUntilMillis) {
-                LocalDate.now(zone).toEpochDay() - 1
-            } else {
-                StepDayBoundary.dayOfEvent(event.timestamp, SystemClock.elapsedRealtimeNanos(), nowMillis, zone)
-            }
+            // den Wert erst später liefert
+            pending = SampleData(
+                timeMillis = StepSamples.eventTime(event.timestamp, elapsedNanos, nowMillis),
+                total = total,
+                bootMillis = StepSamples.bootMillis(elapsedNanos, nowMillis)
+            )
 
-            scope.launch { repository.recordSensorTotal(total, day, "Dienst") }
+            // Gespeichert wird höchstens alle 30 Sekunden, der letzte Wert kommt nach der Pause
+            val wait = (StepSamples.MIN_INTERVAL_CHANGED_MILLIS - (SystemClock.elapsedRealtime() - lastStoreAt))
+                .coerceAtLeast(0L)
+            handler.removeCallbacks(storePending)
+            handler.postDelayed(storePending, wait)
         }
 
         override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+    }
+
+    private val storePending = Runnable {
+        val sample = pending ?: return@Runnable
+        pending = null
+        lastStoreAt = SystemClock.elapsedRealtime()
+        scope.launch { repository.recordSample(sample) }
+    }
+
+    /**
+     * Alle 30 Minuten den Sensor neu anmelden. Das liefert sofort den aktuellen Wert, auch wenn sich
+     * nichts geändert hat. So ist auch eine Zeit ohne Schritte (zum Beispiel die Nacht) belegt.
+     */
+    private val heartbeat = object : Runnable {
+        override fun run() {
+            unregister()
+            register()
+            handler.postDelayed(this, HEARTBEAT_MILLIS)
+        }
     }
 
     override fun onCreate() {
@@ -77,10 +108,8 @@ class StepCounterService : Service() {
 
         sensorManager = getSystemService(SensorManager::class.java)
         prefs = StepPreferences(this)
-        repository = StepRepository(
-            dao = DatabaseProvider.getDatabase(this).stepEntryDao(),
-            prefs = prefs
-        )
+        val database = DatabaseProvider.getDatabase(this)
+        repository = StepRepository(database.stepEntryDao(), database.stepSampleDao(), prefs)
 
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(CHANNEL_ID, "Schritte", NotificationManager.IMPORTANCE_MIN).apply {
@@ -98,21 +127,22 @@ class StepCounterService : Service() {
             startForeground(NOTIFICATION_ID, notification)
         }
 
-        if (intent?.action == ACTION_MIDNIGHT) {
-            // Neu anmelden liefert sofort den aktuellen Wert, der noch zum Vortag zählt
-            midnightUntilMillis = System.currentTimeMillis() + MIDNIGHT_WINDOW_MILLIS
-            unregister()
-        }
         register()
 
+        handler.removeCallbacks(heartbeat)
+        handler.postDelayed(heartbeat, HEARTBEAT_MILLIS)
+
         // Die Benachrichtigung zeigt die Schritte von heute und wird höchstens alle 3 Sekunden aktualisiert
-        scope.launch {
-            repository.observeEntries().conflate().collect { entries ->
-                val today = LocalDate.now().toEpochDay()
-                val steps = entries.firstOrNull { it.dateEpochDay == today }?.steps ?: 0
-                getSystemService(NotificationManager::class.java)
-                    .notify(NOTIFICATION_ID, buildNotification(steps))
-                delay(3_000L)
+        if (!notificationJob) {
+            notificationJob = true
+            scope.launch {
+                repository.observeEntries().conflate().collect { entries ->
+                    val today = LocalDate.now().toEpochDay()
+                    val steps = entries.firstOrNull { it.dateEpochDay == today }?.steps ?: 0
+                    getSystemService(NotificationManager::class.java)
+                        .notify(NOTIFICATION_ID, buildNotification(steps))
+                    delay(3_000L)
+                }
             }
         }
 
@@ -120,8 +150,10 @@ class StepCounterService : Service() {
     }
 
     override fun onDestroy() {
+        handler.removeCallbacksAndMessages(null)
         unregister()
-        scope.cancel()
+        // Einen noch nicht gespeicherten Wert nicht verlieren
+        pending?.let { sample -> scope.launch { repository.recordSample(sample) } }
         running = false
         super.onDestroy()
     }
@@ -166,11 +198,9 @@ class StepCounterService : Service() {
     }
 
     companion object {
-        const val ACTION_MIDNIGHT = "com.example.fitnesstracker.STEP_MIDNIGHT"
-
         private const val CHANNEL_ID = "steps"
         private const val NOTIFICATION_ID = 1002
-        private const val MIDNIGHT_WINDOW_MILLIS = 8_000L
+        private const val HEARTBEAT_MILLIS = 30 * 60 * 1000L
 
         /** true, solange der Dienst läuft (für die Diagnose in den Einstellungen). */
         @Volatile

@@ -3,9 +3,15 @@ package com.example.fitnesstracker.data.repository
 import com.example.fitnesstracker.data.local.StepEntry
 import com.example.fitnesstracker.data.local.StepEntryDao
 import com.example.fitnesstracker.data.local.StepPreferences
-import com.example.fitnesstracker.domain.steps.StepDeltaCalculator
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
+import com.example.fitnesstracker.data.local.StepSample
+import com.example.fitnesstracker.data.local.StepSampleDao
+import com.example.fitnesstracker.domain.steps.SampleData
+import com.example.fitnesstracker.domain.steps.StepSamples
+import com.example.fitnesstracker.domain.steps.toData
+import java.time.Instant
+import java.time.ZoneId
+import kotlin.math.max
+import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,62 +19,94 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
+/**
+ * Schritte: Der Dienst speichert Messwerte des Zählers, daraus entstehen die Tageswerte.
+ * Die Tageswerte werden bei jedem neuen Messwert aus allen aufgehobenen Messwerten neu berechnet,
+ * dadurch kann kein Wert auf einen falschen Tag fallen oder doppelt zählen.
+ */
 class StepRepository(
-    private val dao: StepEntryDao,
+    private val entryDao: StepEntryDao,
+    private val sampleDao: StepSampleDao,
     private val prefs: StepPreferences
 ) {
     private companion object {
-        // Sensorwerte werden nacheinander verarbeitet, damit keine Schritte doppelt zählen.
-        // Die Sperre gilt für die ganze App, auch für das Lesen im Hintergrund.
+        // Neue Messwerte werden nacheinander verarbeitet
         val mutex = Mutex()
-        val DAY_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.")
     }
 
     private val _stepGoal = MutableStateFlow(prefs.getStepGoal())
     val stepGoal: StateFlow<Int> = _stepGoal.asStateFlow()
 
-    fun observeEntries(): Flow<List<StepEntry>> = dao.observeAll()
+    fun observeEntries(): Flow<List<StepEntry>> = entryDao.observeAll()
 
     fun setStepGoal(goal: Int) {
         prefs.setStepGoal(goal)
         _stepGoal.value = goal
     }
 
-    /**
-     * Verarbeitet einen Rohwert des Schrittzähler-Sensors.
-     * Die Differenz zum zuletzt gespeicherten Wert wird dem Tag [todayEpochDay] gutgeschrieben.
-     * Um Mitternacht entsteht dadurch automatisch ein neuer Tageseintrag.
-     */
-    suspend fun recordSensorTotal(total: Long, todayEpochDay: Long, source: String = "App") {
+    /** Speichert den Messwert (falls nötig) und berechnet die Tageswerte neu. */
+    suspend fun recordSample(sample: SampleData) {
         mutex.withLock {
-            val last = prefs.getLastSensorTotal()
-            val delta = StepDeltaCalculator.delta(last, total)
-            prefs.setLastSensorTotal(total)
+            val last = sampleDao.getLast()?.toData()
+            if (!StepSamples.shouldStore(last, sample)) return
 
-            if (delta > 0L) {
-                addSteps(todayEpochDay, delta.coerceAtMost(Int.MAX_VALUE.toLong()).toInt())
-            }
+            sampleDao.insert(
+                StepSample(
+                    timeMillis = sample.timeMillis,
+                    total = sample.total,
+                    bootMillis = sample.bootMillis
+                )
+            )
+            sampleDao.pruneBefore(sample.timeMillis - StepSamples.RETENTION_MILLIS)
 
-            // Eintrag fürs Mess-Protokoll in den Einstellungen
-            val day = LocalDate.ofEpochDay(todayEpochDay).format(DAY_FORMAT)
-            val note = when {
-                last == null -> "Rohwert $total \u00B7 Basiswert gesetzt"
-                total < last -> "Rohwert $total \u00B7 Neustart erkannt, +$delta Schritte \u2192 $day"
-                else -> "Rohwert $total \u00B7 +$delta Schritte \u2192 $day"
-            }
-            prefs.appendReadLog(source, note)
+            // Nur die Tage ab dem vorherigen Messwert können sich geändert haben
+            recompute(fromMillis = minOf(last?.timeMillis ?: sample.timeMillis, sample.timeMillis))
         }
     }
 
-    private suspend fun addSteps(dateEpochDay: Long, delta: Int) {
+    /** Löscht alle Schrittdaten (Tageswerte und Messwerte). */
+    suspend fun resetAll() {
+        mutex.withLock {
+            entryDao.deleteAll()
+            sampleDao.deleteAll()
+        }
+    }
+
+    /**
+     * Berechnet die Tageswerte ab dem Tag von [fromMillis] neu. Geladen werden nur die Messwerte ab
+     * Beginn dieses Tages und der letzte davor, damit der Tag vollständig abgedeckt ist.
+     */
+    private suspend fun recompute(fromMillis: Long) {
+        val zone = ZoneId.systemDefault()
+        val fromDate = Instant.ofEpochMilli(fromMillis).atZone(zone).toLocalDate()
+        val fromDay = fromDate.toEpochDay()
+        val dayStart = fromDate.atStartOfDay(zone).toInstant().toEpochMilli()
+
+        val samples = sampleDao.getFrom(dayStart).map { it.toData() }
+        if (samples.size < 2) return
+
+        val computed = StepSamples.dailySteps(samples, zone).filterKeys { it >= fromDay }
+        val existing = entryDao.getAll().associateBy { it.dateEpochDay }
+        val firstDay = Instant.ofEpochMilli(samples.minOf { it.timeMillis })
+            .atZone(zone).toLocalDate().toEpochDay()
         val now = System.currentTimeMillis()
-        val updatedRows = dao.addSteps(dateEpochDay, delta, now)
-        if (updatedRows == 0) {
-            dao.insert(
+
+        for ((day, value) in computed) {
+            var steps = value.roundToInt()
+
+            // Der erste Tag ist nur teilweise abgedeckt (ältere Messwerte sind gelöscht):
+            // er wird nie kleiner als der gespeicherte Wert
+            if (day == firstDay) steps = max(steps, existing[day]?.steps ?: 0)
+
+            val current = existing[day]
+            if (current?.steps == steps) continue
+            if (current == null && steps == 0) continue
+
+            entryDao.upsert(
                 StepEntry(
-                    dateEpochDay = dateEpochDay,
-                    steps = delta,
-                    createdAt = now,
+                    dateEpochDay = day,
+                    steps = steps,
+                    createdAt = current?.createdAt ?: now,
                     updatedAt = now
                 )
             )

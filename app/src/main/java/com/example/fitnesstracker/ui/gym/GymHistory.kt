@@ -1,5 +1,6 @@
 package com.example.fitnesstracker.ui.gym
 
+import com.example.fitnesstracker.domain.gym.OneRepMax
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -387,6 +389,12 @@ fun ExerciseProgressScreen(
     val points = totals.points
     val best = GymCalculator.personalBests(finishedData, setData).firstOrNull { it.exerciseId == exerciseId }
 
+    // Geschätztes Maximalgewicht (nur bei Übungen mit Wiederholungen und Sätzen bis 10 Wdh.)
+    val oneRepMax = OneRepMax.best(exerciseId, finishedData, setData)
+    val oneRepMaxPoints = OneRepMax.progress(exerciseId, finishedData, setData)
+    var chartMode by rememberSaveable { mutableStateOf(0) } // 0 = Gesamt, 1 = 1RM
+    var showTable by rememberSaveable { mutableStateOf(false) }
+
     GymPage {
         GymHeader(title = best?.exerciseName ?: "Übung", onBack = onBack)
 
@@ -406,18 +414,52 @@ fun ExerciseProgressScreen(
                 )
             }
 
+            oneRepMax?.let { orm ->
+                Spacer(modifier = Modifier.height(8.dp))
+                StatBox(
+                    label = "Geschätztes 1RM ›",
+                    value = GymFormat.kg(OneRepMax.roundToPlate(orm.estimateKg)),
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = { showTable = true }
+                )
+                Text(
+                    text = "Berechnet aus ${GymFormat.setText(orm.weightKg, orm.reps)} am ${GymFormat.date(orm.dateEpochDay)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
         }
 
+        if (oneRepMaxPoints.size >= 2) {
+            GymTabs(
+                labels = listOf("Gesamt", "Geschätztes 1RM"),
+                selected = chartMode,
+                onSelect = { chartMode = it }
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+        val showOneRepMax = chartMode == 1 && oneRepMaxPoints.size >= 2
+
         Text(
-            text = GymFormat.totalLabel(totals.metric),
+            text = if (showOneRepMax) "GESCHÄTZTES 1RM (KG)" else GymFormat.totalLabel(totals.metric),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        if (points.size >= 2) {
+        if (showOneRepMax) {
+            ForgeCard(modifier = Modifier.fillMaxWidth()) {
+                GymLineChart(
+                    epochDays = oneRepMaxPoints.map { it.dateEpochDay },
+                    values = oneRepMaxPoints.map { it.maxWeightKg },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        } else if (points.size >= 2) {
             ForgeCard(modifier = Modifier.fillMaxWidth()) {
                 GymLineChart(
                     epochDays = points.map { it.dateEpochDay },
@@ -479,4 +521,46 @@ fun ExerciseProgressScreen(
             }
         }
     }
+
+    val tableFor = oneRepMax
+    if (showTable && tableFor != null) {
+        OneRepMaxDialog(oneRepMaxKg = tableFor.estimateKg, onDismiss = { showTable = false })
+    }
+}
+
+/** Prozent-Tabelle zum geschätzten 1RM: welches Gewicht für wie viele Wiederholungen. */
+@Composable
+private fun OneRepMaxDialog(oneRepMaxKg: Double, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Geschätztes 1RM: ${GymFormat.kg(OneRepMax.roundToPlate(oneRepMaxKg))}") },
+        text = {
+            Column {
+                OneRepMax.table(oneRepMaxKg).forEach { row ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("${row.percent} %", style = MaterialTheme.typography.bodyMedium)
+                        Text(GymFormat.kg(row.weightKg), style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            text = if (row.reps == 1) "1 Wdh." else "~${row.reps} Wdh.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Schätzung nach Epley aus deinen Sätzen mit bis zu 10 Wiederholungen. " +
+                            "Kein Test nötig, aber nur ein Richtwert.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Schließen") } }
+    )
 }

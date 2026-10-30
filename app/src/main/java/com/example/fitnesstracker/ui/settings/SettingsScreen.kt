@@ -19,13 +19,19 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -42,18 +48,19 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.example.fitnesstracker.data.export.DataExporter
 import com.example.fitnesstracker.data.local.DatabaseProvider
+import com.example.fitnesstracker.domain.export.DataExport
 import com.example.fitnesstracker.data.local.ReminderPreferences
 import com.example.fitnesstracker.data.local.StepPreferences
 import com.example.fitnesstracker.data.local.WorkoutPreferences
 import com.example.fitnesstracker.domain.calories.CalorieProfile
 import com.example.fitnesstracker.data.repository.StepRepository
 import com.example.fitnesstracker.domain.reminder.ReminderCalculator
-import com.example.fitnesstracker.domain.steps.StepDayBoundary
 import com.example.fitnesstracker.service.RestSignal
 import com.example.fitnesstracker.service.StepCounterService
-import com.example.fitnesstracker.service.StepSensorReader
 import com.example.fitnesstracker.service.StepTracking
 import com.example.fitnesstracker.service.WeightReminderScheduler
 import com.example.fitnesstracker.domain.calories.Sex
@@ -62,6 +69,7 @@ import com.example.fitnesstracker.ui.calories.CalorieProfileDialog
 import com.example.fitnesstracker.ui.calories.CalorieViewModel
 import com.example.fitnesstracker.ui.calories.activityLabel
 import com.example.fitnesstracker.ui.calories.sexLabel
+import com.example.fitnesstracker.ui.gym.ConfirmDialog
 import com.example.fitnesstracker.ui.gym.GroupLabel
 import com.example.fitnesstracker.ui.gym.GymHeader
 import com.example.fitnesstracker.ui.gym.GymPage
@@ -130,6 +138,10 @@ fun SettingsScreen(
             onEditProfile = { showProfile = true },
             showEditButton = false
         )
+
+        GroupLabel("Daten")
+
+        ExportCard()
     }
 
     if (showProfile) {
@@ -177,6 +189,7 @@ private fun ReminderCard() {
     var enabled by remember { mutableStateOf(prefs.isEnabled()) }
     var hour by remember { mutableStateOf(prefs.getHour()) }
     var minute by remember { mutableStateOf(prefs.getMinute()) }
+    var showTimePicker by remember { mutableStateOf(false) }
     var notificationsOn by remember {
         mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled())
     }
@@ -237,36 +250,11 @@ private fun ReminderCard() {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Stunde in 1er-, Minute in 5er-Schritten
-                        TextButton(onClick = { save(true, ReminderCalculator.stepHour(hour, -1), minute) }) {
-                            Text("\u2212")
-                        }
+                    OutlinedButton(onClick = { showTimePicker = true }) {
                         Text(
                             text = ReminderCalculator.format(hour, minute),
                             style = MaterialTheme.typography.titleMedium
                         )
-                        TextButton(onClick = { save(true, ReminderCalculator.stepHour(hour, 1), minute) }) {
-                            Text("+")
-                        }
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Minuten",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    TextButton(onClick = { save(true, hour, ReminderCalculator.stepMinute(minute, -5)) }) {
-                        Text("\u2212")
-                    }
-                    TextButton(onClick = { save(true, hour, ReminderCalculator.stepMinute(minute, 5)) }) {
-                        Text("+")
                     }
                 }
 
@@ -290,6 +278,83 @@ private fun ReminderCard() {
             }
         }
     }
+
+    if (showTimePicker) {
+        TimePickerDialog(
+            hour = hour,
+            minute = minute,
+            onConfirm = { h, m ->
+                save(true, h, m)
+                showTimePicker = false
+            },
+            onDismiss = { showTimePicker = false }
+        )
+    }
+}
+
+/** Export aller Daten als ZIP mit CSV-Dateien (für Excel, Sheets, Python, R). */
+@Composable
+private fun ExportCard() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var status by remember { mutableStateOf<String?>(null) }
+    var running by remember { mutableStateOf(false) }
+
+    val launcher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        running = true
+        status = null
+        scope.launch {
+            status = DataExporter.writeZip(context, uri) ?: "Export gespeichert."
+            running = false
+        }
+    }
+
+    ForgeCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(text = "Daten exportieren", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = "Eine ZIP-Datei mit CSV-Tabellen: Gewicht, Schritte, Ernährung und Training, " +
+                        "dazu eine Übersicht pro Tag. Lässt sich in Excel, Google Sheets oder Python öffnen.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            status?.let {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(text = it, style = MaterialTheme.typography.bodySmall)
+            }
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(
+                    onClick = { launcher.launch(DataExport.fileName(LocalDate.now())) },
+                    enabled = !running
+                ) { Text(if (running) "Exportiert …" else "Exportieren") }
+            }
+        }
+    }
+}
+
+/** Uhr zum Einstellen einer Uhrzeit (24 Stunden). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TimePickerDialog(
+    hour: Int,
+    minute: Int,
+    onConfirm: (hour: Int, minute: Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val state = rememberTimePickerState(initialHour = hour, initialMinute = minute, is24Hour = true)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Uhrzeit wählen") },
+        text = { TimePicker(state = state) },
+        confirmButton = { TextButton(onClick = { onConfirm(state.hour, state.minute) }) { Text("OK") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }
+    )
 }
 
 /** Signalton und Vibration am Ende der Satzpause, einzeln ein- und ausschaltbar. */
@@ -360,31 +425,40 @@ private fun SwitchLine(
 }
 
 /**
- * Diagnose des Schrittzählers: zeigt, ob alles erlaubt ist, und die letzten Messungen. So lässt sich
- * erkennen, warum Schritte fehlen oder falsch zugeordnet werden.
+ * Schrittzähler: Schalter fürs Zählen im Hintergrund, Zustand aller Voraussetzungen und die letzten
+ * Messwerte. So lässt sich erkennen, warum Schritte fehlen.
  */
 @Composable
 private fun StepDiagnosticsCard() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val prefs = remember { StepPreferences(context) }
+    val database = remember { DatabaseProvider.getDatabase(context) }
+    val repository = remember {
+        StepRepository(database.stepEntryDao(), database.stepSampleDao(), prefs)
+    }
+    val recent by remember { database.stepSampleDao().observeRecent(8) }
+        .collectAsStateWithLifecycle(initialValue = emptyList())
 
-    var log by remember { mutableStateOf(prefs.getReadLog()) }
-    var measuring by remember { mutableStateOf(false) }
     var background by remember { mutableStateOf(prefs.isBackgroundCountingEnabled()) }
-    var result by remember { mutableStateOf<String?>(null) }
+    var showReset by remember { mutableStateOf(false) }
+
+    // Zeigt, ob der Dienst gerade läuft, und aktualisiert sich nach dem Umschalten oder Neustarten
+    var serviceRunning by remember { mutableStateOf(StepCounterService.running) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            serviceRunning = StepCounterService.running
+            delay(1_000L)
+        }
+    }
 
     val hasSensor = context.getSystemService(SensorManager::class.java)
         ?.getDefaultSensor(Sensor.TYPE_STEP_COUNTER) != null
-    val hasPermission = StepSensorReader.hasPermission(context)
+    val hasPermission = StepTracking.hasPermission(context)
     val ignoresBattery = context.getSystemService(PowerManager::class.java)
         ?.isIgnoringBatteryOptimizations(context.packageName) == true
-    val exactAlarms = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
-            context.getSystemService(AlarmManager::class.java)?.canScheduleExactAlarms() == true
 
     val timeFormat = remember { DateTimeFormatter.ofPattern("dd.MM. HH:mm") }
-    val nextNight = Instant.ofEpochMilli(StepDayBoundary.nextMidnightMillis(ZonedDateTime.now()))
-        .atZone(ZoneId.systemDefault()).format(timeFormat)
 
     ForgeCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -402,12 +476,10 @@ private fun StepDiagnosticsCard() {
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            ProfileLine("Zähl-Dienst", if (StepCounterService.running) "läuft" else "aus")
+            ProfileLine("Zähl-Dienst", if (serviceRunning) "läuft" else "aus")
             ProfileLine("Schrittzähler-Sensor", if (hasSensor) "vorhanden" else "fehlt")
             ProfileLine("Berechtigung Aktivität", if (hasPermission) "erteilt" else "fehlt")
             ProfileLine("Akku-Optimierung", if (ignoresBattery) "ausgenommen" else "aktiv")
-            ProfileLine("Genaue Alarme", if (exactAlarms) "erlaubt" else "nicht erlaubt")
-            ProfileLine("Nächste Nachtmessung", nextNight)
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -425,69 +497,53 @@ private fun StepDiagnosticsCard() {
                     ) { Text("Akku-Ausnahme") }
                 }
 
-                TextButton(
-                    enabled = !measuring,
-                    onClick = {
-                        measuring = true
-                        scope.launch {
-                            val reading = StepSensorReader.readEvent(context)
-                            result = when {
-                                !StepSensorReader.hasPermission(context) -> "Berechtigung fehlt."
-                                reading == null -> "Der Sensor lieferte keinen Wert."
-                                else -> {
-                                    val day = StepDayBoundary.dayOfEvent(
-                                        reading.timestampNanos,
-                                        SystemClock.elapsedRealtimeNanos(),
-                                        System.currentTimeMillis(),
-                                        ZoneId.systemDefault()
-                                    )
-                                    StepRepository(
-                                        dao = DatabaseProvider.getDatabase(context).stepEntryDao(),
-                                        prefs = prefs
-                                    ).recordSensorTotal(reading.total, day, "Manuell")
-                                    "Gemessen, Rohwert ${reading.total}."
-                                }
-                            }
-                            log = prefs.getReadLog()
-                            measuring = false
-                        }
-                    }
-                ) { Text("Jetzt messen") }
+                TextButton(onClick = { StepTracking.restart(context) }) { Text("Neu starten") }
             }
 
-            result?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = { showReset = true }) {
+                    Text("Schrittdaten zurücksetzen", color = MaterialTheme.colorScheme.error)
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Letzte Messungen",
+                text = "Letzte Messwerte",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            if (log.isEmpty()) {
+            if (recent.isEmpty()) {
                 Text(
-                    text = "Noch keine Messung aufgezeichnet.",
+                    text = "Noch kein Messwert.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
-                log.takeLast(10).reversed().forEach { entry ->
-                    val time = Instant.ofEpochMilli(entry.atMillis).atZone(ZoneId.systemDefault())
+                recent.forEach { sample ->
+                    val time = Instant.ofEpochMilli(sample.timeMillis).atZone(ZoneId.systemDefault())
                         .format(timeFormat)
                     Text(
-                        text = "$time \u00B7 ${entry.source} \u00B7 ${entry.text}",
+                        text = "$time \u00B7 Rohwert ${sample.total}",
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(top = 4.dp)
                     )
                 }
             }
         }
+    }
+
+    if (showReset) {
+        ConfirmDialog(
+            title = "Schrittdaten zurücksetzen?",
+            message = "Alle Tageswerte und Messwerte der Schritte werden gelöscht. Danach zählt die App von vorn.",
+            confirmLabel = "Zurücksetzen",
+            onConfirm = {
+                scope.launch { repository.resetAll() }
+                showReset = false
+            },
+            onDismiss = { showReset = false }
+        )
     }
 }

@@ -194,7 +194,7 @@ class ExerciseKindTest {
 
     @Test fun metricTexts() {
         assertEquals("80 kg", GymFormat.metric(ExerciseKind.REPS, 80.0))
-        assertEquals("70 Sek.", GymFormat.metric(ExerciseKind.TIME, 70.0))
+        assertEquals("1:10 Min", GymFormat.metric(ExerciseKind.TIME, 70.0))
         assertEquals("20 kg Unterstützung", GymFormat.metric(ExerciseKind.ASSISTED, 20.0))
     }
 

@@ -1,5 +1,7 @@
 package com.example.fitnesstracker.ui.steps
 
+import com.example.fitnesstracker.ui.chart.chartPan
+import com.example.fitnesstracker.domain.chart.ChartWindow
 import android.Manifest
 import android.content.Context
 import android.content.ContextWrapper
@@ -43,6 +45,7 @@ import com.example.fitnesstracker.domain.steps.StepDay
 import com.example.fitnesstracker.domain.steps.StepGoalParseResult
 import com.example.fitnesstracker.domain.steps.StepGoalParser
 import com.example.fitnesstracker.domain.steps.toStepDay
+import com.example.fitnesstracker.service.StepTracking
 import java.time.LocalDate
 
 // Feste Höhe von allem außer dem Diagramm (Titel, Heute-Karte, Statistik, Zeitraum-Leiste, Abstände).
@@ -96,28 +99,29 @@ fun StepsScreen(
                 Lifecycle.Event.ON_START -> {
                     // Der Nutzer kann die Berechtigung inzwischen in den Einstellungen erteilt haben.
                     hasPermission = hasActivityRecognition(context)
-                    if (hasPermission) viewModel.startListening()
+                    // Der Zähl-Dienst läuft im Hintergrund, hier wird er (nach dem Erteilen der Berechtigung) gestartet
+                    if (hasPermission) StepTracking.start(context)
                 }
-                Lifecycle.Event.ON_STOP -> viewModel.stopListening()
                 else -> Unit
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
-            viewModel.stopListening()
         }
     }
 
     // Berechtigung wurde gerade erteilt, während der Screen schon sichtbar ist
     LaunchedEffect(hasPermission) {
         if (hasPermission && lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
-            viewModel.startListening()
+            StepTracking.start(context)
         }
     }
 
     // ---------- UI-Zustand ----------
     var chartRange by rememberSaveable { mutableStateOf(StepChartRange.WEEK) }
+    // Letzter sichtbarer Tag im Diagramm; null = heute
+    var chartEnd by rememberSaveable { mutableStateOf<Long?>(null) }
     var selectedDayEpoch by rememberSaveable { mutableStateOf<Long?>(null) }
     var showGoalDialog by rememberSaveable { mutableStateOf(false) }
     var goalInput by rememberSaveable { mutableStateOf("") }
@@ -129,7 +133,11 @@ fun StepsScreen(
     val progress = StepCalculator.goalProgress(todaySteps, goal)
     val week = StepCalculator.summary(days, 7, todayEpochDay)
     val month = StepCalculator.summary(days, 30, todayEpochDay)
-    val bars = StepChartData.barsFor(days, chartRange, todayEpochDay)
+    // Das Fenster lässt sich bis zum ersten Tag mit Schritten zurückwischen
+    val firstStepDay = days.filter { it.steps > 0 }.minOfOrNull { it.dateEpochDay } ?: todayEpochDay
+    val windowSpan = chartRange.days - 1
+    val windowEnd = ChartWindow.clampEnd(chartEnd ?: todayEpochDay, windowSpan, firstStepDay, todayEpochDay)
+    val bars = StepChartData.barsFor(days, chartRange, windowEnd)
 
     // ---------- Layout ----------
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -195,8 +203,17 @@ fun StepsScreen(
                     goal = goal,
                     range = chartRange,
                     chartHeight = chartHeight,
-                    onRangeChange = { chartRange = it },
-                    onBarClick = { selectedDayEpoch = it }
+                    onRangeChange = {
+                        chartRange = it
+                        chartEnd = null
+                    },
+                    onBarClick = { selectedDayEpoch = it },
+                    chartModifier = Modifier.chartPan(
+                        enabled = ChartWindow.canPan(windowSpan, firstStepDay, todayEpochDay),
+                        visibleDays = chartRange.days
+                    ) { delta ->
+                        chartEnd = ChartWindow.clampEnd(windowEnd + delta, windowSpan, firstStepDay, todayEpochDay)
+                    }
                 )
             }
 

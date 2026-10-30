@@ -251,10 +251,11 @@ internal fun StepChartSection(
     range: StepChartRange,
     chartHeight: Dp,
     onRangeChange: (StepChartRange) -> Unit,
-    onBarClick: (epochDay: Long) -> Unit
+    onBarClick: (epochDay: Long) -> Unit,
+    chartModifier: Modifier = Modifier
 ) {
     ForgeCard(
-        modifier = Modifier
+        modifier = chartModifier
             .fillMaxWidth()
             .height(chartHeight)
     ) {

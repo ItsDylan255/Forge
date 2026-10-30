@@ -37,4 +37,14 @@ interface StepEntryDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(entry: StepEntry): Long
+
+    @Query("SELECT * FROM step_entry")
+    suspend fun getAll(): List<StepEntry>
+
+    /** Legt den Tag an oder ersetzt ihn (pro Tag gibt es nur einen Eintrag). */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(entry: StepEntry): Long
+
+    @Query("DELETE FROM step_entry")
+    suspend fun deleteAll()
 }

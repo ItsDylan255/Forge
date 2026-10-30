@@ -5,7 +5,6 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [
-        WorkoutRoutine::class,
         WeightEntry::class,
         WeightGoal::class,
         FoodItem::class,
@@ -19,14 +18,14 @@ import androidx.room.RoomDatabase
         UserProfile::class,
         Meal::class,
         MealIngredient::class,
-        FoodPortion::class
+        FoodPortion::class,
+        StepSample::class,
+        GymPlan::class
     ],
-    version = 13,
+    version = 16,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
-
-    abstract fun workoutRoutineDao(): WorkoutRoutineDao
 
     abstract fun weightEntryDao(): WeightEntryDao
 
@@ -45,4 +44,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun userProfileDao(): UserProfileDao
 
     abstract fun mealDao(): MealDao
+
+    abstract fun stepSampleDao(): StepSampleDao
 }

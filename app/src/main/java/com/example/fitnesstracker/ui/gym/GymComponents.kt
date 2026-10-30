@@ -129,8 +129,13 @@ internal fun GymTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Uni
 
 /** Kleine Kennzahl-Box (z. B. Dauer, Volumen). */
 @Composable
-internal fun StatBox(label: String, value: String, modifier: Modifier = Modifier) {
-    ForgeCard(modifier = modifier) {
+internal fun StatBox(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null
+) {
+    ForgeCard(modifier = modifier, onClick = onClick) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()

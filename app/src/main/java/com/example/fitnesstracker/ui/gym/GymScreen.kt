@@ -2,13 +2,16 @@ package com.example.fitnesstracker.ui.gym
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -16,6 +19,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -23,17 +27,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.fitnesstracker.data.local.GymExercise
+import com.example.fitnesstracker.data.local.GymPlan
 import com.example.fitnesstracker.data.local.GymRoutine
 import com.example.fitnesstracker.data.local.GymRoutineExercise
 import com.example.fitnesstracker.data.local.GymSession
 import com.example.fitnesstracker.domain.gym.GymFormat
+import com.example.fitnesstracker.domain.gym.PlanProgress
+import com.example.fitnesstracker.domain.gym.PlanProgressCalculator
+import com.example.fitnesstracker.domain.gym.PlanSessionRef
+import com.example.fitnesstracker.domain.gym.RoutinePlans
 import com.example.fitnesstracker.domain.gym.toData
 import com.example.fitnesstracker.ui.weight.ForgeCard
 import java.time.LocalDate
 
 /**
  * Einstieg des Gym-Tabs. Die Unterseiten werden über eine einfache Route gesteuert:
- * home, library, editor:<id|0>, workout, session:<id>, summary:<id>, exercise:<id>
+ * home, library, archive, editor:<id|0>, newin:<planId>, workout, session:<id>, summary:<id>, exercise:<id>
  */
 @Composable
 fun GymScreen(viewModel: GymViewModel) {
@@ -45,6 +54,17 @@ fun GymScreen(viewModel: GymViewModel) {
     when {
         route == "library" ->
             ExerciseLibraryScreen(viewModel = viewModel, onBack = { route = "home" })
+
+        route == "archive" ->
+            RoutineArchiveScreen(viewModel = viewModel, onBack = { route = "home" })
+
+        route.startsWith("newin:") ->
+            RoutineEditorScreen(
+                viewModel = viewModel,
+                routineId = null,
+                onDone = { route = "home" },
+                initialPlanId = route.removePrefix("newin:").toLongOrNull()
+            )
 
         route.startsWith("editor:") ->
             RoutineEditorScreen(
@@ -101,6 +121,7 @@ private fun GymHome(
     onNavigate: (String) -> Unit
 ) {
     val routines by viewModel.routines.collectAsStateWithLifecycle()
+    val plans by viewModel.plans.collectAsStateWithLifecycle()
     val routineExercises by viewModel.routineExercises.collectAsStateWithLifecycle()
     val exercises by viewModel.exercises.collectAsStateWithLifecycle()
     val sessions by viewModel.sessions.collectAsStateWithLifecycle()
@@ -135,16 +156,18 @@ private fun GymHome(
 
         when (homeTab) {
             0 -> RoutinesTab(
+                viewModel = viewModel,
                 routines = routines,
+                plans = plans,
                 routineItems = routineExercises,
                 exercises = exercises,
+                sessions = finished,
+                today = todayEpochDay,
                 hasActive = active != null,
                 onStart = { routineId ->
                     viewModel.startSession(routineId) { onNavigate("workout") }
                 },
-                onEdit = { onNavigate("editor:$it") },
-                onNew = { onNavigate("editor:0") },
-                onLibrary = { onNavigate("library") }
+                onNavigate = onNavigate
             )
 
             1 -> HistoryTab(
@@ -197,18 +220,35 @@ private fun ActiveSessionBanner(session: GymSession, onResume: () -> Unit) {
 
 @Composable
 private fun RoutinesTab(
+    viewModel: GymViewModel,
     routines: List<GymRoutine>,
+    plans: List<GymPlan>,
     routineItems: List<GymRoutineExercise>,
     exercises: List<GymExercise>,
+    sessions: List<GymSession>,
+    today: Long,
     hasActive: Boolean,
     onStart: (Long?) -> Unit,
-    onEdit: (Long) -> Unit,
-    onNew: () -> Unit,
-    onLibrary: () -> Unit
+    onNavigate: (String) -> Unit
 ) {
     val nameById = exercises.associate { it.id to it.name }
+    val itemsByRoutine = routineItems.groupBy { it.routineId }
+    val routineRefs = routines.map { it.toRef() }
+    val planRefs = plans.map { it.toRef() }
+    val groups = RoutinePlans.groups(routineRefs, planRefs)
+    val archive = RoutinePlans.archive(routineRefs, planRefs)
+    val planSessions = sessions.map {
+        PlanSessionRef(it.planId, it.routineId, it.routineName, it.dateEpochDay, it.startedAt)
+    }
 
-    Button(onClick = onNew, modifier = Modifier.fillMaxWidth()) { Text("+ Neue Routine") }
+    var newPlan by remember { mutableStateOf(false) }
+    var renamePlan by remember { mutableStateOf<GymPlan?>(null) }
+    var deletePlan by remember { mutableStateOf<GymPlan?>(null) }
+    var duplicatePlan by remember { mutableStateOf<GymPlan?>(null) }
+    var duplicateError by remember { mutableStateOf<String?>(null) }
+    var planError by remember { mutableStateOf<String?>(null) }
+
+    Button(onClick = { onNavigate("editor:0") }, modifier = Modifier.fillMaxWidth()) { Text("+ Neue Routine") }
 
     Spacer(modifier = Modifier.height(8.dp))
 
@@ -219,52 +259,211 @@ private fun RoutinesTab(
             modifier = Modifier.weight(1f)
         ) { Text("Freies Workout") }
 
-        OutlinedButton(onClick = onLibrary, modifier = Modifier.weight(1f)) { Text("Übungen") }
+        OutlinedButton(onClick = { onNavigate("library") }, modifier = Modifier.weight(1f)) { Text("Übungen") }
     }
 
-    Spacer(modifier = Modifier.height(16.dp))
+    Spacer(modifier = Modifier.height(8.dp))
 
-    if (routines.isEmpty()) {
+    OutlinedButton(onClick = { newPlan = true }, modifier = Modifier.fillMaxWidth()) { Text("+ Neuer Trainingsplan") }
+
+    if (groups.isEmpty()) {
+        Spacer(modifier = Modifier.height(16.dp))
         EmptyHint("Noch keine Routine. Lege zuerst unter „Übungen“ deine Übungen an und erstelle danach deine erste Routine, zum Beispiel „Push Day“.")
-        return
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        routines.forEach { routine ->
-            val items = routineItems.filter { it.routineId == routine.id }.sortedBy { it.position }
-            val preview = items.mapNotNull { nameById[it.exerciseId] }
+    groups.forEach { group ->
+        val plan = group.plan?.let { ref -> plans.firstOrNull { it.id == ref.id } }
 
-            ForgeCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(text = routine.name, style = MaterialTheme.typography.titleMedium)
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = if (items.isEmpty()) "Keine Übungen"
-                        else "${items.size} Übungen · " +
-                                preview.take(3).joinToString(", ") +
-                                if (preview.size > 3) " …" else "",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+        Row(verticalAlignment = Alignment.Bottom) {
+            Box(modifier = Modifier.weight(1f)) {
+                GroupLabel(plan?.name ?: if (groups.size == 1) "Routinen" else "Ohne Plan")
+            }
+            if (plan != null) {
+                OverflowMenu(
+                    listOf(
+                        MenuAction("Routine hinzufügen") { onNavigate("newin:${plan.id}") },
+                        MenuAction("Umbenennen") { renamePlan = plan },
+                        MenuAction("Duplizieren") { duplicatePlan = plan },
+                        MenuAction("Plan archivieren") { viewModel.setPlanArchived(plan.id, archived = true) },
+                        MenuAction("Plan löschen", destructive = true) { deletePlan = plan }
                     )
+                )
+            }
+        }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+        if (plan != null) {
+            PlanProgressCalculator.progress(
+                planId = plan.id,
+                activeRoutineIds = group.routines.map { it.id }.toSet(),
+                sessions = planSessions,
+                today = today
+            )?.let { progress ->
+                PlanProgressLine(progress, today)
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Button(
-                            onClick = { onStart(routine.id) },
-                            enabled = !hasActive && items.isNotEmpty(),
-                            modifier = Modifier.weight(1f)
-                        ) { Text("Starten") }
+        if (group.routines.isEmpty()) {
+            EmptyHint("Noch keine Routine in diesem Plan. Füge über ⋮ eine hinzu.")
+        }
 
-                        TextButton(onClick = { onEdit(routine.id) }) { Text("Bearbeiten") }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            group.routines.forEachIndexed { index, routine ->
+                val items = itemsByRoutine[routine.id].orEmpty().sortedBy { it.position }
+                RoutineCard(
+                    name = routine.name,
+                    items = items,
+                    exerciseNames = items.mapNotNull { nameById[it.exerciseId] },
+                    canStart = !hasActive && items.isNotEmpty(),
+                    onStart = { onStart(routine.id) },
+                    onEdit = { onNavigate("editor:${routine.id}") },
+                    menu = listOfNotNull(
+                        if (plan != null && index > 0)
+                            MenuAction("Nach oben") { viewModel.moveRoutineInPlan(routine.id, up = true) }
+                        else null,
+                        if (plan != null && index < group.routines.lastIndex)
+                            MenuAction("Nach unten") { viewModel.moveRoutineInPlan(routine.id, up = false) }
+                        else null,
+                        MenuAction("Archivieren") { viewModel.setRoutineArchived(routine.id, archived = true) }
+                    )
+                )
+            }
+        }
+    }
+
+    if (!archive.isEmpty) {
+        Spacer(modifier = Modifier.height(16.dp))
+        TextButton(onClick = { onNavigate("archive") }, modifier = Modifier.fillMaxWidth()) {
+            Text("Archiv (${archive.count}) ›")
+        }
+    }
+
+    if (newPlan || renamePlan != null) {
+        val editing = renamePlan
+        PlanNameDialog(
+            title = if (editing == null) "Neuer Trainingsplan" else "Plan umbenennen",
+            initialName = editing?.name.orEmpty(),
+            error = planError,
+            onSave = { name ->
+                viewModel.savePlan(editing?.id, name) { message, _ ->
+                    planError = message
+                    if (message == null) {
+                        newPlan = false
+                        renamePlan = null
                     }
                 }
+            },
+            onDismiss = {
+                newPlan = false
+                renamePlan = null
+                planError = null
+            }
+        )
+    }
+
+    duplicatePlan?.let { plan ->
+        DuplicatePlanDialog(
+            planName = plan.name,
+            error = duplicateError,
+            onSave = { name, deload ->
+                viewModel.duplicatePlan(plan.id, name, deload) { message ->
+                    duplicateError = message
+                    if (message == null) duplicatePlan = null
+                }
+            },
+            onDismiss = {
+                duplicatePlan = null
+                duplicateError = null
+            }
+        )
+    }
+
+    deletePlan?.let { plan ->
+        ConfirmDialog(
+            title = "Plan löschen?",
+            message = "Nur der Plan „${plan.name}“ wird gelöscht. Seine Routinen bleiben erhalten und sind danach ohne Plan.",
+            confirmLabel = "Löschen",
+            onConfirm = {
+                viewModel.deletePlan(plan.id)
+                deletePlan = null
+            },
+            onDismiss = { deletePlan = null }
+        )
+    }
+}
+
+/** „Woche 3 · 2 Durchgänge · zuletzt Leg Day 2 (gestern)“ und ein Balken für diese Woche. */
+@Composable
+private fun PlanProgressLine(progress: PlanProgress, today: Long) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+
+    Text(
+        text = "Woche ${progress.week} · " +
+                (if (progress.rounds == 1) "1 Durchgang" else "${progress.rounds} Durchgänge") +
+                " · zuletzt ${progress.lastRoutineName} " +
+                "(${PlanProgressCalculator.daysAgoText(progress.lastEpochDay, today)})",
+        style = MaterialTheme.typography.bodySmall,
+        color = muted
+    )
+
+    if (progress.routineCount > 0) {
+        Spacer(modifier = Modifier.height(6.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            LinearProgressIndicator(
+                progress = { progress.doneThisWeek.toFloat() / progress.routineCount },
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "${progress.doneThisWeek} von ${progress.routineCount} diese Woche",
+                style = MaterialTheme.typography.bodySmall,
+                color = muted
+            )
+        }
+    }
+}
+
+@Composable
+private fun RoutineCard(
+    name: String,
+    items: List<GymRoutineExercise>,
+    exerciseNames: List<String>,
+    canStart: Boolean,
+    onStart: () -> Unit,
+    onEdit: () -> Unit,
+    menu: List<MenuAction>
+) {
+    ForgeCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(text = name, style = MaterialTheme.typography.titleMedium)
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = if (items.isEmpty()) "Keine Übungen"
+                else "${items.size} Übungen · " +
+                        exerciseNames.take(3).joinToString(", ") +
+                        if (exerciseNames.size > 3) " …" else "",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Button(
+                    onClick = onStart,
+                    enabled = canStart,
+                    modifier = Modifier.weight(1f)
+                ) { Text("Starten") }
+
+                TextButton(onClick = onEdit) { Text("Bearbeiten") }
+
+                OverflowMenu(menu)
             }
         }
     }
