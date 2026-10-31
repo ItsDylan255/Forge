@@ -60,14 +60,14 @@ days = pd.read_csv("tage.csv", parse_dates=["datum"])
 
 ## Installation
 
-1. Download `forge-1.0.0.apk` from the [latest release](https://github.com/ItsDylan255/Forge/releases/latest).
+1. Download `forge-1.1.0.apk` from the [latest release](https://github.com/ItsDylan255/Forge/releases/latest).
 2. Open it on your Android phone and allow installing apps from this source.
 
 Requires **Android 8.0 (API 26)** or newer.
 
 ### Watch app (optional)
 
-Requires **Wear OS 3** or newer (e.g. Galaxy Watch 4 and later). The watch app isn't on the Play Store, so you install it over Wi-Fi debugging:
+Requires **Wear OS 3** or newer (e.g. Galaxy Watch 4 and later). The watch app isn't on the Play Store, so you install `forge-watch-1.1.0.apk` from the release over Wi-Fi debugging:
 
 1. On the watch, enable developer options: **Settings → About watch → Software**, tap **Software version** 7 times.
 2. Under **Settings → Developer options**, turn on **ADB debugging** and **Wireless debugging**, then tap **Pair new device**.
@@ -75,7 +75,7 @@ Requires **Wear OS 3** or newer (e.g. Galaxy Watch 4 and later). The watch app i
    ```bash
    adb pair <ip>:<pairing-port>     # code shown on the watch
    adb connect <ip>:<port>          # address shown under Wireless debugging
-   adb install wear-debug.apk
+   adb install forge-watch-1.1.0.apk   # from the latest release
    ```
 
 Phone and watch app must be signed with the same key, otherwise they can't talk to each other.
