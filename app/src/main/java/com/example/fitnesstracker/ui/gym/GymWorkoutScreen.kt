@@ -57,6 +57,7 @@ import com.example.fitnesstracker.domain.gym.SetSide
 import com.example.fitnesstracker.domain.gym.WorkoutFlow
 import com.example.fitnesstracker.domain.gym.WorkoutSlot
 import com.example.fitnesstracker.domain.gym.toData
+import com.example.fitnesstracker.service.RestTimer
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale

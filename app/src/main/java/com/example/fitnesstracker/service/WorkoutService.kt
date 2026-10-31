@@ -16,6 +16,7 @@ import com.example.fitnesstracker.MainActivity
 import com.example.fitnesstracker.R
 import com.example.fitnesstracker.data.local.WorkoutPreferences
 import com.example.fitnesstracker.domain.gym.WorkoutNotificationPlanner
+import com.example.fitnesstracker.wear.WearBridge
 
 /**
  * Hält während eines Trainings eine dauerhafte Benachrichtigung bereit: Trainingsdauer, bei einer
@@ -155,6 +156,8 @@ class WorkoutService : Service() {
     private fun signalRestOver() {
         val prefs = WorkoutPreferences(this)
         RestSignal.play(this, prefs.isSoundEnabled(), prefs.isVibrationEnabled())
+        // Die Uhr vibriert am Handgelenk, unabhängig von den Einstellungen fürs Handy
+        WearBridge.sendRestOver(this)
     }
 
     private fun acquireWakeLock(timeoutMillis: Long) {

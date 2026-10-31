@@ -54,6 +54,7 @@ import com.example.fitnesstracker.domain.food.FoodFormat
 import com.example.fitnesstracker.domain.food.toData
 import com.example.fitnesstracker.ui.calories.CalorieViewModel
 import java.time.LocalDate
+import com.example.fitnesstracker.service.LiveSync
 import com.example.fitnesstracker.service.StepTracking
 import com.example.fitnesstracker.service.WeightReminderScheduler
 import com.example.fitnesstracker.ui.food.FoodScreen
@@ -127,6 +128,8 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // Schritt-Dienst starten (oder stoppen, falls abgeschaltet). Auch nach dem Erteilen der Berechtigung.
         StepTracking.start(applicationContext)
+        // Trainings-Benachrichtigung und Uhr auf dem neuesten Stand halten
+        LiveSync.start(applicationContext)
     }
 
     override fun onNewIntent(intent: Intent) {

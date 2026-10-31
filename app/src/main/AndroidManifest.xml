@@ -67,6 +67,19 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+
+        <!-- Knöpfe der Uhr (Pause verlängern oder überspringen) -->
+        <service
+            android:name=".wear.PhoneWearListenerService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+                <data
+                    android:host="*"
+                    android:pathPrefix="/forge"
+                    android:scheme="wear" />
+            </intent-filter>
+        </service>
     </application>
 
 </manifest>

@@ -105,6 +105,8 @@ class StepCounterService : Service() {
     override fun onCreate() {
         super.onCreate()
         running = true
+        // Hält auch die Kachel auf der Uhr aktuell, wenn die App geschlossen ist
+        LiveSync.start(this)
 
         sensorManager = getSystemService(SensorManager::class.java)
         prefs = StepPreferences(this)

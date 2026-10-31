@@ -30,6 +30,14 @@
 - Food database with portions, meals made of several ingredients, a food diary with calories and macros
 - Calorie target based on your profile (height, age, sex, activity level, macro split)
 
+### Wear OS companion (e.g. Galaxy Watch)
+A companion app for the watch that shows what's happening on your phone. All input stays on the phone.
+- **Workout on your wrist:** opens automatically when you start a workout on the phone, and shows the current exercise, set, target reps, your last performance and new 1RM records
+- **Rest timer** with a progress ring that vibrates on your wrist when the rest is over. **+30 s** and **skip** are the only buttons on the watch
+- **Ongoing activity:** an icon on the watch face takes you back to the workout at any time
+- **Tile** with today's steps (as a ring), weight and calories
+- **Complication** that shows today's steps on your watch face
+
 ### Data export
 Export all your data as a ZIP file of CSV tables (**Settings → Daten → Exportieren**):
 
@@ -57,6 +65,21 @@ days = pd.read_csv("tage.csv", parse_dates=["datum"])
 
 Requires **Android 8.0 (API 26)** or newer.
 
+### Watch app (optional)
+
+Requires **Wear OS 3** or newer (e.g. Galaxy Watch 4 and later). The watch app isn't on the Play Store, so you install it over Wi-Fi debugging:
+
+1. On the watch, enable developer options: **Settings → About watch → Software**, tap **Software version** 7 times.
+2. Under **Settings → Developer options**, turn on **ADB debugging** and **Wireless debugging**, then tap **Pair new device**.
+3. On your computer (watch and computer on the same Wi-Fi):
+   ```bash
+   adb pair <ip>:<pairing-port>     # code shown on the watch
+   adb connect <ip>:<port>          # address shown under Wireless debugging
+   adb install wear-debug.apk
+   ```
+
+Phone and watch app must be signed with the same key, otherwise they can't talk to each other.
+
 ## Building from source
 
 Requirements: Android Studio (or the Android SDK) and JDK 17+.
@@ -64,7 +87,7 @@ Requirements: Android Studio (or the Android SDK) and JDK 17+.
 ```bash
 git clone https://github.com/ItsDylan255/Forge.git
 cd Forge
-./gradlew assembleDebug        # APK in app/build/outputs/apk/debug/
+./gradlew assembleDebug        # phone APK in app/build/outputs/apk/debug/, watch APK in wear/build/outputs/apk/debug/
 ./gradlew testDebugUnitTest    # unit tests
 ```
 
@@ -74,6 +97,7 @@ cd Forge
 - Room (SQLite) with versioned migrations
 - WorkManager for reminders, foreground services for workouts and step counting
 - Charts drawn with Compose Canvas, no chart library
+- Watch: Compose for Wear OS, Tiles, Complications, Ongoing Activities and the Wearable Data Layer
 
 ## Project structure
 
@@ -82,7 +106,11 @@ app/src/main/java/com/example/fitnesstracker/
 ├── data/       Room entities, DAOs, repositories, preferences, export
 ├── domain/     Pure Kotlin logic (calculations, parsing, formatting), unit-tested
 ├── service/    Workout and step services, reminders, notifications
-└── ui/         Compose screens per area (gym, weight, steps, food, settings, ...)
+├── ui/         Compose screens per area (gym, weight, steps, food, settings, ...)
+└── wear/       Sync with the watch over the Wearable Data Layer
+
+wear/src/main/java/com/example/fitnesstracker/watch/
+                Watch app: workout and rest screen, tile, complication
 ```
 
 All calculations live in `domain/` and don't depend on Android, so they're covered by plain JUnit tests in `app/src/test/`.
@@ -99,4 +127,4 @@ All calculations live in `domain/` and don't depend on Android, so they're cover
 
 ## Privacy
 
-Forge has no internet permission. Your data never leaves your device unless you export it yourself.
+Forge has no internet permission. Your data never leaves your device unless you export it yourself. If you use the watch app, the phone sends the current workout and today's numbers to your watch over Bluetooth (via the Wearable Data Layer of Google Play services). The watch only keeps today's numbers for the tile and doesn't have its own database.

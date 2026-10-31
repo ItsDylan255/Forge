@@ -64,4 +64,9 @@ dependencies {
 
     // Schritte im Hintergrund zählen (alle ca. 15 Minuten)
     implementation("androidx.work:work-runtime-ktx:2.10.0")
+
+    // Verbindung zur Uhr (Bluetooth über die Wearable Data Layer)
+    implementation(libs.play.services.wearable)
+    implementation(libs.kotlinx.coroutines.play.services)
+    implementation(libs.androidx.wear.remote.interactions)
 }

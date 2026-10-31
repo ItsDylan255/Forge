@@ -17,13 +17,13 @@ import com.example.fitnesstracker.domain.gym.PlanRef
 import com.example.fitnesstracker.domain.gym.RoutinePlans
 import com.example.fitnesstracker.domain.gym.RoutineRef
 import com.example.fitnesstracker.domain.gym.SetSide
-import com.example.fitnesstracker.service.WorkoutNotifier
+import com.example.fitnesstracker.service.LiveSync
+import com.example.fitnesstracker.service.RestTimer
+import com.example.fitnesstracker.service.RestTimerStore
+import com.example.fitnesstracker.wear.WearBridge
 import java.time.LocalDate
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -64,16 +64,6 @@ fun GymRoutine.toRef() = RoutineRef(
 )
 
 fun GymPlan.toRef() = PlanRef(id = id, name = name, archived = archivedAt != null)
-
-/**
- * Der laufende Pausen-Countdown. Er liegt im ViewModel, damit er beim Wechsel zwischen
- * Tabs oder Bildschirmen weiterläuft. Die Restzeit ergibt sich aus [endsAtMillis].
- */
-data class RestTimer(
-    val exerciseName: String,
-    val endsAtMillis: Long,
-    val totalMillis: Long
-)
 
 class GymViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -116,51 +106,19 @@ class GymViewModel(application: Application) : AndroidViewModel(application) {
 
     // ---------- Pausen-Timer ----------
 
-    private val _restTimer = MutableStateFlow<RestTimer?>(null)
+    /** null = gerade keine Pause. Liegt im [RestTimerStore], damit auch die Uhr sie steuern kann. */
+    val restTimer: StateFlow<RestTimer?> = RestTimerStore.timer
 
-    /** null = gerade keine Pause. */
-    val restTimer: StateFlow<RestTimer?> = _restTimer.asStateFlow()
-
-    // Hält die Benachrichtigung (und das Signal am Pausenende) auf dem neuesten Stand.
-    // Erst nach dem ersten Laden der Einheiten, sonst würde der Start "kein Training" melden.
+    // Hält Benachrichtigung, Pausen-Signal und Uhr auf dem neuesten Stand
     init {
-        viewModelScope.launch {
-            combine(sessionsLoaded, activeSession, restTimer) { loaded, session, rest ->
-                Triple(loaded, session, rest)
-            }.collect { (loaded, session, rest) ->
-                if (loaded) {
-                    WorkoutNotifier.sync(
-                        context = getApplication(),
-                        sessionName = session?.routineName,
-                        startedAt = session?.startedAt,
-                        restLabel = rest?.exerciseName,
-                        restEndsAt = rest?.endsAtMillis,
-                        restTotalMillis = rest?.totalMillis
-                    )
-                }
-            }
-        }
+        LiveSync.start(application)
     }
 
     /** Startet den Countdown. Ein bereits laufender wird ersetzt. 0 Sekunden = keine Pause. */
-    fun startRest(exerciseName: String, seconds: Int) {
-        if (seconds <= 0) {
-            _restTimer.value = null
-            return
-        }
-
-        val total = seconds * 1000L
-        _restTimer.value = RestTimer(
-            exerciseName = exerciseName,
-            endsAtMillis = System.currentTimeMillis() + total,
-            totalMillis = total
-        )
-    }
+    fun startRest(exerciseName: String, seconds: Int) = RestTimerStore.start(exerciseName, seconds)
 
     /** Beendet die Pause (vorzeitig oder nach Ablauf). */
-    fun skipRest() {
-        _restTimer.value = null
-    }
+    fun skipRest() = RestTimerStore.skip()
 
     // ---------- Übungen ----------
 
@@ -416,6 +374,8 @@ class GymViewModel(application: Application) : AndroidViewModel(application) {
                         updatedAt = now
                     )
                 )
+                // Öffnet das Training auf der Uhr, falls eine verbunden ist
+                WearBridge.openOnWatch(getApplication())
             }
             onStarted()
         }
@@ -464,7 +424,7 @@ class GymViewModel(application: Application) : AndroidViewModel(application) {
     /** Beendet die Einheit und speichert damit die Dauer (endedAt − startedAt). */
     fun finishSession(sessionId: Long, onDone: () -> Unit) {
         viewModelScope.launch {
-            _restTimer.value = null
+            RestTimerStore.skip()
 
             val session = dao.getSession(sessionId)
             if (session != null && session.endedAt == null) {
@@ -478,7 +438,7 @@ class GymViewModel(application: Application) : AndroidViewModel(application) {
     /** Verwirft eine laufende Einheit samt Sätzen. */
     fun discardSession(sessionId: Long, onDone: () -> Unit) {
         viewModelScope.launch {
-            _restTimer.value = null
+            RestTimerStore.skip()
             dao.deleteSession(sessionId)
             onDone()
         }
@@ -486,7 +446,7 @@ class GymViewModel(application: Application) : AndroidViewModel(application) {
 
     fun deleteSession(sessionId: Long) {
         viewModelScope.launch {
-            _restTimer.value = null
+            RestTimerStore.skip()
             dao.deleteSession(sessionId)
         }
     }
