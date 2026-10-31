@@ -17,6 +17,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,6 +28,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
@@ -39,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -52,22 +56,28 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.fitnesstracker.i18n.AppLanguage
 import com.example.fitnesstracker.i18n.L10n
 import com.example.fitnesstracker.i18n.tr
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle as JavaTextStyle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.example.fitnesstracker.data.export.DataExporter
 import com.example.fitnesstracker.data.local.DatabaseProvider
 import com.example.fitnesstracker.domain.export.DataExport
+import com.example.fitnesstracker.data.local.PhotoReminderPreferences
 import com.example.fitnesstracker.data.local.ReminderPreferences
 import com.example.fitnesstracker.data.local.StepPreferences
 import com.example.fitnesstracker.data.local.WorkoutPreferences
 import com.example.fitnesstracker.domain.calories.CalorieProfile
 import com.example.fitnesstracker.data.repository.StepRepository
+import com.example.fitnesstracker.domain.photos.PhotoReminderCalculator
+import com.example.fitnesstracker.domain.photos.PhotoSchedule
 import com.example.fitnesstracker.domain.reminder.ReminderCalculator
+import com.example.fitnesstracker.service.PhotoReminderScheduler
 import com.example.fitnesstracker.service.RestSignal
 import com.example.fitnesstracker.service.StepCounterService
 import com.example.fitnesstracker.service.StepTracking
@@ -79,6 +89,7 @@ import com.example.fitnesstracker.ui.calories.CalorieViewModel
 import com.example.fitnesstracker.ui.calories.activityLabel
 import com.example.fitnesstracker.ui.calories.sexLabel
 import com.example.fitnesstracker.ui.gym.ConfirmDialog
+import com.example.fitnesstracker.ui.photos.dueText
 import com.example.fitnesstracker.ui.gym.GroupLabel
 import com.example.fitnesstracker.ui.gym.GymHeader
 import com.example.fitnesstracker.ui.gym.GymPage
@@ -105,6 +116,10 @@ fun SettingsScreen(
         GroupLabel(tr("Erinnerungen", "Reminders"))
 
         ReminderCard()
+
+        GroupLabel(tr("Fortschrittsfotos", "Progress photos"))
+
+        PhotoReminderCard()
 
         GroupLabel("Training")
 
@@ -417,6 +432,192 @@ private fun TimePickerDialog(
         confirmButton = { TextButton(onClick = { onConfirm(state.hour, state.minute) }) { Text("OK") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Abbrechen", "Cancel")) } }
     )
+}
+
+/**
+ * Rhythmus der Fortschrittsfotos: alle X Tage, jede Woche an einem Wochentag oder am ersten
+ * Wochentag im Monat. Erinnert per Benachrichtigung und auf der Startseite.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PhotoReminderCard() {
+    val context = LocalContext.current
+    val prefs = remember { PhotoReminderPreferences(context) }
+
+    var schedule by remember { mutableStateOf(prefs.getSchedule()) }
+    var hour by remember { mutableStateOf(prefs.getHour()) }
+    var minute by remember { mutableStateOf(prefs.getMinute()) }
+    var showTimePicker by remember { mutableStateOf(false) }
+    var notificationsOn by remember {
+        mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled())
+    }
+    val lastPhotoDay by produceState<Long?>(initialValue = null) {
+        value = DatabaseProvider.getDatabase(context).progressPhotoDao().lastPhotoDay()
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        notificationsOn = granted || NotificationManagerCompat.from(context).areNotificationsEnabled()
+    }
+
+    // Zuletzt gewählte Werte, damit beim Wechsel der Art nichts verloren geht
+    val days = (schedule as? PhotoSchedule.EveryDays)?.days ?: PhotoReminderPreferences.DEFAULT_DAYS
+    val weekday = when (val current = schedule) {
+        is PhotoSchedule.Weekly -> current.day
+        is PhotoSchedule.MonthlyFirst -> current.day
+        else -> DayOfWeek.SUNDAY
+    }
+
+    fun save(newSchedule: PhotoSchedule) {
+        val wasOff = schedule == PhotoSchedule.Off
+        schedule = newSchedule
+        prefs.setSchedule(newSchedule)
+        PhotoReminderScheduler.schedule(context)
+        if (wasOff && newSchedule != PhotoSchedule.Off && Build.VERSION.SDK_INT >= 33 && !notificationsOn) {
+            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    ForgeCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(text = tr("Erinnerung an Fotos", "Photo reminder"), style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = tr(
+                    "Wie oft du ein Fortschrittsfoto machen willst. Der nächste Termin steht auch auf der Startseite.",
+                    "How often you want to take a progress photo. The next date also shows on the home page."
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = schedule == PhotoSchedule.Off,
+                    onClick = { save(PhotoSchedule.Off) },
+                    label = { Text(tr("Aus", "Off")) }
+                )
+                FilterChip(
+                    selected = schedule is PhotoSchedule.EveryDays,
+                    onClick = { save(PhotoSchedule.EveryDays(days)) },
+                    label = { Text(tr("Alle X Tage", "Every X days")) }
+                )
+                FilterChip(
+                    selected = schedule is PhotoSchedule.Weekly,
+                    onClick = { save(PhotoSchedule.Weekly(weekday)) },
+                    label = { Text(tr("Wöchentlich", "Weekly")) }
+                )
+                FilterChip(
+                    selected = schedule is PhotoSchedule.MonthlyFirst,
+                    onClick = { save(PhotoSchedule.MonthlyFirst(weekday)) },
+                    label = { Text(tr("Monatlich", "Monthly")) }
+                )
+            }
+
+            when (val current = schedule) {
+                is PhotoSchedule.EveryDays -> {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(tr("Alle", "Every"), style = MaterialTheme.typography.bodyMedium)
+                        TextButton(
+                            onClick = { save(PhotoSchedule.EveryDays(current.days - 1)) },
+                            enabled = current.days > PhotoSchedule.MIN_DAYS
+                        ) { Text("\u2212", style = MaterialTheme.typography.titleLarge) }
+                        Text(current.days.toString(), style = MaterialTheme.typography.titleMedium)
+                        TextButton(
+                            onClick = { save(PhotoSchedule.EveryDays(current.days + 1)) },
+                            enabled = current.days < PhotoSchedule.MAX_DAYS
+                        ) { Text("+", style = MaterialTheme.typography.titleLarge) }
+                        Text(
+                            if (current.days == 1) tr("Tag", "day") else tr("Tage", "days"),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+
+                is PhotoSchedule.Weekly, is PhotoSchedule.MonthlyFirst -> {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = if (current is PhotoSchedule.Weekly) tr("Jeden", "Every")
+                        else tr("Am ersten dieser Wochentage im Monat", "On the first of this weekday each month"),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        DayOfWeek.entries.forEach { day ->
+                            FilterChip(
+                                selected = day == weekday,
+                                onClick = {
+                                    save(if (current is PhotoSchedule.Weekly) PhotoSchedule.Weekly(day) else PhotoSchedule.MonthlyFirst(day))
+                                },
+                                label = { Text(day.getDisplayName(JavaTextStyle.SHORT, L10n.locale)) }
+                            )
+                        }
+                    }
+                }
+
+                PhotoSchedule.Off -> Unit
+            }
+
+            if (schedule != PhotoSchedule.Off) {
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = tr("Uhrzeit der Erinnerung", "Reminder time"),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    OutlinedButton(onClick = { showTimePicker = true }) {
+                        Text(text = ReminderCalculator.format(hour, minute), style = MaterialTheme.typography.titleMedium)
+                    }
+                }
+
+                PhotoReminderCalculator.status(schedule, lastPhotoDay, prefs.getAnchorDay(), LocalDate.now().toEpochDay())
+                    ?.let { due ->
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = dueText(due),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (due.isOverdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                if (!notificationsOn) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = tr("Benachrichtigungen sind für Forge ausgeschaltet. ", "Notifications are turned off for Forge. ") +
+                                tr("Erlaube sie in den Android-Einstellungen.", "Allow them in the Android settings."),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        }
+    }
+
+    if (showTimePicker) {
+        TimePickerDialog(
+            hour = hour,
+            minute = minute,
+            onConfirm = { h, m ->
+                hour = h
+                minute = m
+                prefs.setTime(h, m)
+                PhotoReminderScheduler.schedule(context)
+                showTimePicker = false
+            },
+            onDismiss = { showTimePicker = false }
+        )
+    }
 }
 
 /** Signalton und Vibration am Ende der Satzpause, einzeln ein- und ausschaltbar. */

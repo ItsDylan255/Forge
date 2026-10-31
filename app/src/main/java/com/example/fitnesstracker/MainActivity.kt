@@ -58,6 +58,8 @@ import com.example.fitnesstracker.domain.food.toData
 import com.example.fitnesstracker.ui.calories.CalorieViewModel
 import java.time.LocalDate
 import com.example.fitnesstracker.service.LiveSync
+import com.example.fitnesstracker.service.PhotoReminderScheduler
+import com.example.fitnesstracker.ui.photos.PhotoNavigation
 import com.example.fitnesstracker.service.StepTracking
 import com.example.fitnesstracker.service.WeightReminderScheduler
 import com.example.fitnesstracker.ui.food.FoodScreen
@@ -117,6 +119,7 @@ class MainActivity : ComponentActivity() {
 
         // Gewicht-Erinnerung (falls eingeschaltet) für den nächsten Termin planen
         WeightReminderScheduler.schedule(applicationContext)
+        PhotoReminderScheduler.schedule(applicationContext)
 
         setContent {
             FitnessTrackerTheme {
@@ -148,6 +151,9 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_OPEN_ROUTE = "open_route"
+
+        /** Öffnet den Gym-Tab direkt bei den Fortschrittsfotos. */
+        const val ROUTE_PHOTOS = "gym_photos"
     }
 }
 
@@ -161,7 +167,13 @@ fun FitnessTrackerApp(
     val currentRoute = backStackEntry?.destination?.route
 
     // Gleiche Navigation wie die Leiste unten, auch für die Karten auf der Startseite
-    val navigateTo: (String) -> Unit = { route ->
+    val navigateTo: (String) -> Unit = { requested ->
+        val route = if (requested == MainActivity.ROUTE_PHOTOS) {
+            PhotoNavigation.request()
+            "gym"
+        } else {
+            requested
+        }
         navController.navigate(route) {
             popUpTo(navController.graph.findStartDestination().id) {
                 saveState = true

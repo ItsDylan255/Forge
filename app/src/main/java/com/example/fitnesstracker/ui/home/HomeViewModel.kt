@@ -5,9 +5,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.fitnesstracker.data.local.DatabaseProvider
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
-/** Daten für die Startseite: Gewicht und Schritte. Nur lesend. */
+/** Daten für die Startseite: Gewicht, Schritte und das letzte Fortschrittsfoto. Nur lesend. */
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = DatabaseProvider.getDatabase(application)
@@ -23,4 +24,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     val stepEntries = db.stepEntryDao().observeAll().stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList()
     )
+
+    /** Tag des letzten Fortschrittsfotos, null wenn es noch keins gibt. */
+    val lastPhotoDay = db.progressPhotoDao().observeAll()
+        .map { photos -> photos.maxOfOrNull { it.dateEpochDay } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 }

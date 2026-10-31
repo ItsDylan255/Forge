@@ -453,6 +453,30 @@ private val MIGRATION_15_16 = object : Migration(15, 16) {
     }
 }
 
+// Neu: Fortschrittsfotos mit den Werten vom Tag der Aufnahme
+private val MIGRATION_16_17 = object : Migration(16, 17) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `progress_photo` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `fileName` TEXT NOT NULL,
+                `dateEpochDay` INTEGER NOT NULL,
+                `weightKg` REAL,
+                `goalWeightKg` REAL,
+                `workoutsTotal` INTEGER NOT NULL,
+                `workouts30Days` INTEGER NOT NULL,
+                `avgSteps7Days` INTEGER,
+                `avgKcal7Days` INTEGER,
+                `kcalTarget` INTEGER,
+                `createdAt` INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_progress_photo_dateEpochDay` ON `progress_photo` (`dateEpochDay`)")
+    }
+}
+
 object DatabaseProvider {
 
     @Volatile
@@ -465,7 +489,7 @@ object DatabaseProvider {
                 AppDatabase::class.java,
                 "fitness_tracker_database"
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
                 .build()
                 .also { database ->
                     INSTANCE = database

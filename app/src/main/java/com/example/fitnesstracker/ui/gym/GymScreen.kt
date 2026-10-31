@@ -17,6 +17,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.fitnesstracker.data.local.GymExercise
 import com.example.fitnesstracker.data.local.GymPlan
 import com.example.fitnesstracker.data.local.GymRoutine
@@ -38,21 +40,45 @@ import com.example.fitnesstracker.domain.gym.PlanSessionRef
 import com.example.fitnesstracker.domain.gym.RoutinePlans
 import com.example.fitnesstracker.domain.gym.toData
 import com.example.fitnesstracker.i18n.tr
+import com.example.fitnesstracker.ui.photos.PhotoDetailScreen
+import com.example.fitnesstracker.ui.photos.PhotoNavigation
+import com.example.fitnesstracker.ui.photos.PhotoViewModel
+import com.example.fitnesstracker.ui.photos.PhotosTab
 import com.example.fitnesstracker.ui.weight.ForgeCard
 import java.time.LocalDate
 
+private const val PHOTOS_TAB = 3
+
 /**
  * Einstieg des Gym-Tabs. Die Unterseiten werden über eine einfache Route gesteuert:
- * home, library, archive, editor:<id|0>, newin:<planId>, workout, session:<id>, summary:<id>, exercise:<id>
+ * home, library, archive, editor:<id|0>, newin:<planId>, workout, session:<id>, summary:<id>, exercise:<id>,
+ * photo:<id>
  */
 @Composable
-fun GymScreen(viewModel: GymViewModel) {
+fun GymScreen(viewModel: GymViewModel, photoViewModel: PhotoViewModel = viewModel()) {
     var route by rememberSaveable { mutableStateOf("home") }
     var homeTab by rememberSaveable { mutableStateOf(0) }
 
     BackHandler(enabled = route != "home") { route = "home" }
 
+    // Startseite oder Erinnerung wollen direkt zu den Fotos
+    val photosRequested by PhotoNavigation.requested.collectAsStateWithLifecycle()
+    LaunchedEffect(photosRequested) {
+        if (photosRequested) {
+            route = "home"
+            homeTab = PHOTOS_TAB
+            PhotoNavigation.consume()
+        }
+    }
+
     when {
+        route.startsWith("photo:") ->
+            PhotoDetailScreen(
+                viewModel = photoViewModel,
+                photoId = route.removePrefix("photo:").toLongOrNull() ?: 0L,
+                onBack = { route = "home" }
+            )
+
         route == "library" ->
             ExerciseLibraryScreen(viewModel = viewModel, onBack = { route = "home" })
 
@@ -107,6 +133,7 @@ fun GymScreen(viewModel: GymViewModel) {
         else ->
             GymHome(
                 viewModel = viewModel,
+                photoViewModel = photoViewModel,
                 homeTab = homeTab,
                 onTab = { homeTab = it },
                 onNavigate = { route = it }
@@ -117,6 +144,7 @@ fun GymScreen(viewModel: GymViewModel) {
 @Composable
 private fun GymHome(
     viewModel: GymViewModel,
+    photoViewModel: PhotoViewModel,
     homeTab: Int,
     onTab: (Int) -> Unit,
     onNavigate: (String) -> Unit
@@ -148,7 +176,7 @@ private fun GymHome(
         }
 
         GymTabs(
-            labels = listOf(tr("Routinen", "Routines"), tr("Verlauf", "History"), tr("Fortschritt", "Progress")),
+            labels = listOf(tr("Routinen", "Routines"), tr("Verlauf", "History"), tr("Fortschritt", "Progress"), tr("Fotos", "Photos")),
             selected = homeTab,
             onSelect = onTab
         )
@@ -179,10 +207,15 @@ private fun GymHome(
                 onOpen = { onNavigate("session:$it") }
             )
 
-            else -> ProgressTab(
+            2 -> ProgressTab(
                 bests = com.example.fitnesstracker.domain.gym.GymCalculator
                     .personalBests(sessionData, setData),
                 onOpen = { onNavigate("exercise:$it") }
+            )
+
+            else -> PhotosTab(
+                viewModel = photoViewModel,
+                onOpen = { onNavigate("photo:$it") }
             )
         }
     }

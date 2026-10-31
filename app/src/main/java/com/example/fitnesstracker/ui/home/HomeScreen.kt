@@ -1,5 +1,6 @@
 package com.example.fitnesstracker.ui.home
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,24 +15,31 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.fitnesstracker.MainActivity
+import com.example.fitnesstracker.data.local.PhotoReminderPreferences
 import com.example.fitnesstracker.domain.food.FoodCalculator
 import com.example.fitnesstracker.domain.food.FoodFormat
 import com.example.fitnesstracker.domain.food.toData
+import com.example.fitnesstracker.domain.photos.PhotoDue
+import com.example.fitnesstracker.domain.photos.PhotoReminderCalculator
 import com.example.fitnesstracker.domain.steps.StepCalculator
 import com.example.fitnesstracker.domain.steps.StepFormat
 import com.example.fitnesstracker.domain.weight.GoalDirection
@@ -40,6 +48,9 @@ import com.example.fitnesstracker.domain.weight.WeightGoalCalculator
 import com.example.fitnesstracker.i18n.tr
 import com.example.fitnesstracker.ui.calories.CalorieViewModel
 import com.example.fitnesstracker.ui.food.FoodViewModel
+import com.example.fitnesstracker.ui.photos.OverdueBackground
+import com.example.fitnesstracker.ui.photos.dueText
+import com.example.fitnesstracker.ui.photos.photoDate
 import com.example.fitnesstracker.ui.steps.StepsViewModel
 import com.example.fitnesstracker.ui.theme.ForgeColors
 import java.time.LocalDate
@@ -67,6 +78,10 @@ fun HomeScreen(
     val calorieTarget by calorieViewModel.target.collectAsStateWithLifecycle()
     val foodLog by foodViewModel.log.collectAsStateWithLifecycle()
     val stepGoal by stepsViewModel.stepGoal.collectAsStateWithLifecycle()
+    val lastPhotoDay by homeViewModel.lastPhotoDay.collectAsStateWithLifecycle()
+
+    val context = LocalContext.current
+    val photoPrefs = remember { PhotoReminderPreferences(context) }
 
     val today = LocalDate.now().toEpochDay()
 
@@ -159,6 +174,57 @@ fun HomeScreen(
                 progress = weightRight,
                 onClick = { onNavigate("weight") }
             )
+        }
+
+        // Nur sichtbar, wenn in den Einstellungen ein Rhythmus für Fortschrittsfotos gewählt ist
+        PhotoReminderCalculator.status(photoPrefs.getSchedule(), lastPhotoDay, photoPrefs.getAnchorDay(), today)
+            ?.let { due ->
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(text = tr("FORTSCHRITTSFOTO", "PROGRESS PHOTO"), color = SecondaryText, fontSize = 12.sp, letterSpacing = 1.5.sp)
+                    PhotoDueCard(due = due, onClick = { onNavigate(MainActivity.ROUTE_PHOTOS) })
+                }
+            }
+    }
+}
+
+/** Nächstes Fortschrittsfoto; leicht rot, sobald der Termin verstrichen ist. */
+@Composable
+private fun PhotoDueCard(due: PhotoDue, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(18.dp)
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .then(if (due.isOverdue) Modifier.border(1.dp, ForgeColors.Danger.copy(alpha = 0.6f), shape) else Modifier)
+            .clickable(onClick = onClick),
+        shape = shape,
+        color = if (due.isOverdue) OverdueBackground else CardBackground
+    ) {
+        Row(modifier = Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Filled.PhotoCamera,
+                contentDescription = null,
+                tint = if (due.isOverdue) ForgeColors.Danger else SecondaryText
+            )
+            Column(modifier = Modifier.weight(1f).padding(start = 14.dp)) {
+                Text(
+                    text = dueText(due),
+                    color = if (due.isOverdue) ForgeColors.Danger else Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = when {
+                        due.isOverdue -> tr("Fällig seit ${photoDate(due.dueEpochDay)} · Tippe, um es jetzt zu machen.",
+                            "Due since ${photoDate(due.dueEpochDay)} · Tap to take it now.")
+                        due.isToday -> tr("Tippe, um es jetzt zu machen.", "Tap to take it now.")
+                        else -> tr("Im Gym-Tab unter „Fotos“.", "In the Gym tab under “Photos”.")
+                    },
+                    color = SecondaryText,
+                    fontSize = 12.sp
+                )
+            }
         }
     }
 }

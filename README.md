@@ -16,6 +16,8 @@
 - **Live workouts** with rest timer, notification, sound and vibration, the last performance of each exercise and progression hints
 - **Estimated 1RM** (Epley formula) per exercise, with a progress chart, a percentage table and a "new record" hint during your workout
 - **History and progress:** volume per week and per session, personal bests, per-exercise charts
+- **Progress photos:** take a photo with the camera or pick one from your gallery. Each photo saves the date, your weight (Forge asks for it if you haven't logged one today) and your stats from that day: goal weight, workouts, average steps and calories. Photos are downscaled and stored privately without location data
+- **Photo reminders:** every X days, weekly on a weekday, or on the first weekday of each month (e.g. the first Sunday). The home page shows when the next photo is due and turns red when it's overdue
 
 ### Weight
 - Daily weigh-ins with a goal weight, a target date and a forecast
@@ -61,14 +63,14 @@ days = pd.read_csv("tage.csv", parse_dates=["datum"])
 
 ## Installation
 
-1. Download `forge-1.1.1.apk` from the [latest release](https://github.com/ItsDylan255/Forge/releases/latest).
+1. Download `forge-1.2.0.apk` from the [latest release](https://github.com/ItsDylan255/Forge/releases/latest).
 2. Open it on your Android phone and allow installing apps from this source.
 
 Requires **Android 8.0 (API 26)** or newer.
 
 ### Watch app (optional)
 
-Requires **Wear OS 3** or newer (e.g. Galaxy Watch 4 and later). The watch app isn't on the Play Store, so you install `forge-watch-1.1.1.apk` from the release over Wi-Fi debugging:
+Requires **Wear OS 3** or newer (e.g. Galaxy Watch 4 and later). The watch app isn't on the Play Store, so you install `forge-watch-1.2.0.apk` from the release over Wi-Fi debugging:
 
 1. On the watch, enable developer options: **Settings → About watch → Software**, tap **Software version** 7 times.
 2. Under **Settings → Developer options**, turn on **ADB debugging** and **Wireless debugging**, then tap **Pair new device**.
@@ -76,7 +78,7 @@ Requires **Wear OS 3** or newer (e.g. Galaxy Watch 4 and later). The watch app i
    ```bash
    adb pair <ip>:<pairing-port>     # code shown on the watch
    adb connect <ip>:<port>          # address shown under Wireless debugging
-   adb install forge-watch-1.1.1.apk   # from the latest release
+   adb install forge-watch-1.2.0.apk   # from the latest release
    ```
 
 Phone and watch app must be signed with the same key, otherwise they can't talk to each other.
@@ -122,10 +124,12 @@ All calculations live in `domain/` and don't depend on Android, so they're cover
 | Permission | Why |
 |---|---|
 | Physical activity | Read the step counter |
-| Notifications | Workout timer, step counter and weight reminder |
+| Notifications | Workout timer, step counter, weight and photo reminders |
 | Foreground service | Keep the rest timer and step counting running |
 | Run at startup | Restart step counting after a reboot |
 | Ignore battery optimizations (optional) | More reliable step counting on some devices |
+
+Forge needs no camera or storage permission: photos are taken by your camera app and picked with the Android photo picker.
 
 ## Privacy
 

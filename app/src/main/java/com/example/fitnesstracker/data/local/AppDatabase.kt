@@ -20,9 +20,10 @@ import androidx.room.RoomDatabase
         MealIngredient::class,
         FoodPortion::class,
         StepSample::class,
-        GymPlan::class
+        GymPlan::class,
+        ProgressPhoto::class
     ],
-    version = 16,
+    version = 17,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -46,4 +47,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun mealDao(): MealDao
 
     abstract fun stepSampleDao(): StepSampleDao
+
+    abstract fun progressPhotoDao(): ProgressPhotoDao
 }
