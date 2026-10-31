@@ -8,6 +8,7 @@ import com.example.fitnesstracker.domain.export.ExportData
 import com.example.fitnesstracker.domain.export.FoodExportRow
 import com.example.fitnesstracker.domain.export.SessionExportRow
 import com.example.fitnesstracker.domain.gym.toData
+import com.example.fitnesstracker.i18n.tr
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.zip.ZipEntry
@@ -53,7 +54,7 @@ object DataExporter {
         try {
             val files = DataExport.files(load(context), ZoneId.systemDefault(), LocalDate.now())
             val stream = context.contentResolver.openOutputStream(target)
-                ?: return@withContext "Die Datei konnte nicht geöffnet werden."
+                ?: return@withContext tr("Die Datei konnte nicht geöffnet werden.", "Could not open the file.")
 
             ZipOutputStream(stream).use { zip ->
                 files.forEach { (name, content) ->
@@ -66,7 +67,7 @@ object DataExporter {
             }
             null
         } catch (e: Exception) {
-            "Export fehlgeschlagen: ${e.message ?: e.javaClass.simpleName}"
+            tr("Export fehlgeschlagen: ${e.message ?: e.javaClass.simpleName}", "Export failed: ${e.message ?: e.javaClass.simpleName}")
         }
     }
 }

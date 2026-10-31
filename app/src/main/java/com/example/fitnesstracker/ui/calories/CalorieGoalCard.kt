@@ -20,6 +20,8 @@ import com.example.fitnesstracker.domain.calories.CalorieDirection
 import com.example.fitnesstracker.domain.calories.CalorieNote
 import com.example.fitnesstracker.domain.calories.CalorieTarget
 import com.example.fitnesstracker.domain.weight.WeightFormat
+import com.example.fitnesstracker.i18n.L10n
+import com.example.fitnesstracker.i18n.tr
 import com.example.fitnesstracker.ui.weight.ForgeCard
 import com.example.fitnesstracker.ui.weight.SectionLabel
 
@@ -28,11 +30,11 @@ import com.example.fitnesstracker.ui.weight.SectionLabel
  * Null, wenn es nichts Besonderes zu sagen gibt (normales Ziel).
  */
 internal fun calorieNoteText(t: CalorieTarget): String? = when (t.note) {
-    CalorieNote.NO_GOAL -> "Kein Gewichtsziel gesetzt: Erhaltungsbedarf."
-    CalorieNote.NO_DATE -> "Kein Zieldatum gesetzt: Erhaltungsbedarf."
-    CalorieNote.DATE_PASSED -> "Zieldatum ist vorbei: Erhaltungsbedarf."
+    CalorieNote.NO_GOAL -> tr("Kein Gewichtsziel gesetzt: Erhaltungsbedarf.", "No weight goal set: maintenance calories.")
+    CalorieNote.NO_DATE -> tr("Kein Zieldatum gesetzt: Erhaltungsbedarf.", "No target date set: maintenance calories.")
+    CalorieNote.DATE_PASSED -> tr("Zieldatum ist vorbei: Erhaltungsbedarf.", "Target date has passed: maintenance calories.")
     CalorieNote.TOO_TIGHT -> tooTightText(t)
-    CalorieNote.REACHED -> "Gewichtsziel erreicht: Erhaltungsbedarf."
+    CalorieNote.REACHED -> tr("Gewichtsziel erreicht: Erhaltungsbedarf.", "Weight goal reached: maintenance calories.")
     CalorieNote.NONE -> null
 }
 
@@ -41,16 +43,16 @@ internal fun calorieNoteText(t: CalorieTarget): String? = when (t.note) {
  * Nennt die Grenze und, wenn möglich, den Tag, an dem das Gewicht damit erreicht wird.
  */
 private fun tooTightText(t: CalorieTarget): String {
-    val what = if (t.direction == CalorieDirection.GAIN) "Überschuss" else "Defizit"
+    val what = if (t.direction == CalorieDirection.GAIN) tr("Überschuss", "surplus") else tr("Defizit", "deficit")
     val eta = t.estimatedEpochDay?.let {
-        "So erreichst du dein Gewicht voraussichtlich erst am ${WeightFormat.date(it)}."
-    } ?: "So ist dein Gewicht in absehbarer Zeit nicht erreichbar."
+        tr("So erreichst du dein Gewicht voraussichtlich erst am ${WeightFormat.date(it)}.", "At this pace you'll likely reach your weight on ${WeightFormat.date(it)}.")
+    } ?: tr("So ist dein Gewicht in absehbarer Zeit nicht erreichbar.", "At this pace you won't reach your weight any time soon.")
 
-    return "Zieldatum zu knapp: Das Tagesziel ist auf ${kcalText(t.appliedDeltaKcal)} $what begrenzt, " +
-            "damit es gesund bleibt. $eta"
+    return tr("Zieldatum zu knapp: Das Tagesziel ist auf ${kcalText(t.appliedDeltaKcal)} $what begrenzt, ", "Target date too close: the daily target is capped at a ${kcalText(t.appliedDeltaKcal)} $what ") +
+            tr("damit es gesund bleibt. $eta", "to keep it healthy. $eta")
 }
 
-private fun kcalText(v: Int): String = "%,d kcal".format(java.util.Locale.GERMANY, v)
+private fun kcalText(v: Int): String = "%,d kcal".format(L10n.locale, v)
 
 /**
  * Karte mit Tagesziel, Makros in Gramm und Zugang zum Profil.
@@ -66,18 +68,18 @@ fun CalorieGoalCard(
 ) {
     ForgeCard(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(20.dp)) {
-            SectionLabel("Kalorienziel")
+            SectionLabel(tr("Kalorienziel", "Calorie goal"))
             Spacer(modifier = Modifier.height(8.dp))
 
             when {
                 !hasProfile -> Text(
-                    text = "Lege dein Profil an, um dein Tagesziel zu berechnen.",
+                    text = tr("Lege dein Profil an, um dein Tagesziel zu berechnen.", "Create your profile to calculate your daily target."),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 target == null -> Text(
-                    text = "Trage zuerst dein Gewicht im Gewicht-Tab ein.",
+                    text = tr("Trage zuerst dein Gewicht im Gewicht-Tab ein.", "Log your weight in the Weight tab first."),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -105,7 +107,7 @@ fun CalorieGoalCard(
                         style = MaterialTheme.typography.titleMedium
                     )
                     Text(
-                        text = "Grundumsatz ${kcalText(target.bmr)} \u00B7 Gesamtumsatz ${kcalText(target.tdee)}",
+                        text = tr("Grundumsatz ${kcalText(target.bmr)} \u00B7 Gesamtumsatz ${kcalText(target.tdee)}", "BMR ${kcalText(target.bmr)} · TDEE ${kcalText(target.tdee)}"),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -119,7 +121,7 @@ fun CalorieGoalCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextButton(onClick = onEditProfile) {
-                        Text(if (hasProfile) "Profil bearbeiten" else "Profil anlegen")
+                        Text(if (hasProfile) tr("Profil bearbeiten", "Edit profile") else tr("Profil anlegen", "Create profile"))
                     }
                 }
             }

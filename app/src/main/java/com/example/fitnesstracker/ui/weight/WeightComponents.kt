@@ -51,9 +51,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.unit.Dp
 import com.example.fitnesstracker.data.local.WeightGoal
 import com.example.fitnesstracker.domain.weight.WeightForecast
+import com.example.fitnesstracker.i18n.L10n
+import com.example.fitnesstracker.i18n.tr
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 // ------------------------------------------------------------
 // Grundbausteine (Forge-Look: ruhige Karten mit feiner Linie)
@@ -94,7 +95,7 @@ internal fun ForgeCard(
 @Composable
 internal fun SectionLabel(text: String) {
     Text(
-        text = text.uppercase(Locale.GERMANY),
+        text = text.uppercase(L10n.locale),
         style = MaterialTheme.typography.labelSmall,
         letterSpacing = 1.2.sp,
         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -104,7 +105,7 @@ internal fun SectionLabel(text: String) {
 /** Umschalter "Gewicht" / "Ziel". */
 @Composable
 internal fun WeightTabs(selected: Int, onSelect: (Int) -> Unit) {
-    val labels = listOf("Gewicht", "Ziel")
+    val labels = listOf(tr("Gewicht", "Weight"), tr("Ziel", "Goal"))
 
     Surface(
         shape = RoundedCornerShape(12.dp),
@@ -146,7 +147,7 @@ internal fun WeightTabs(selected: Int, onSelect: (Int) -> Unit) {
 
 private val BoxHeight = 80.dp
 private val boxDateFormatter: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("dd.MM.yy", Locale.GERMANY)
+    DateTimeFormatter.ofPattern(tr("dd.MM.yy", "dd/MM/yy"), L10n.locale)
 
 /**
  * Eine kleine Info-Box. Mit [onClick] ist sie antippbar,
@@ -210,17 +211,17 @@ internal fun StatsGrid(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            InfoBox("Aktuell", latest?.let { WeightFormat.weight(it.weightKg) } ?: "—")
-            InfoBox("Änderung", changeToPrevious.asText())
-            InfoBox("Gesamt", changeTotal.asText())
+            InfoBox(tr("Aktuell", "Current"), latest?.let { WeightFormat.weight(it.weightKg) } ?: "—")
+            InfoBox(tr("Änderung", "Change"), changeToPrevious.asText())
+            InfoBox(tr("Gesamt", "Total"), changeTotal.asText())
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            InfoBox("7 Tage", change7.asText())
-            InfoBox("30 Tage", change30.asText())
-            InfoBox("90 Tage", change90.asText())
+            InfoBox(tr("7 Tage", "7 days"), change7.asText())
+            InfoBox(tr("30 Tage", "30 days"), change30.asText())
+            InfoBox(tr("90 Tage", "90 days"), change90.asText())
         }
     }
 }
@@ -256,7 +257,7 @@ internal fun GoalGrid(
     }
 
     val percentText: String? = progress?.progressFraction?.let {
-        String.format(Locale.GERMANY, "%.0f %%", it * 100.0)
+        String.format(L10n.locale, "%.0f %%", it * 100.0)
     }
 
     val dateText: String? = goal?.targetDateEpochDay?.let {
@@ -265,11 +266,11 @@ internal fun GoalGrid(
 
     val forecastText: String? = when (forecast) {
         is WeightForecast.Predicted -> LocalDate.ofEpochDay(forecast.epochDay).format(boxDateFormatter)
-        WeightForecast.Reached -> "Erreicht"
+        WeightForecast.Reached -> tr("Erreicht", "Reached")
         // Kurze Gründe, damit die Box nicht einfach leer bleibt
-        WeightForecast.NotEnoughData -> "Mehr Daten"
-        WeightForecast.NoProgress -> "Kein Trend"
-        WeightForecast.TooFar -> "> 10 Jahre"
+        WeightForecast.NotEnoughData -> tr("Mehr Daten", "More data")
+        WeightForecast.NoProgress -> tr("Kein Trend", "No trend")
+        WeightForecast.TooFar -> tr("> 10 Jahre", "> 10 years")
         else -> null
     }
 
@@ -279,18 +280,18 @@ internal fun GoalGrid(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             InfoBox(
-                label = "Bis Zieldatum",
+                label = tr("Bis Zieldatum", "Until target date"),
                 value = daysText ?: "—",
                 muted = daysText == null
             )
             InfoBox(
-                label = "Zielgewicht",
-                value = target?.let { WeightFormat.weight(it) } ?: "Festlegen",
+                label = tr("Zielgewicht", "Target weight"),
+                value = target?.let { WeightFormat.weight(it) } ?: tr("Festlegen", "Set"),
                 onClick = onTargetClick,
                 muted = target == null
             )
             InfoBox(
-                label = if (gaining) "Noch zuzunehmen" else "Noch abzunehmen",
+                label = if (gaining) tr("Noch zuzunehmen", "Left to gain") else tr("Noch abzunehmen", "Left to lose"),
                 value = remainingText ?: "—",
                 muted = remainingText == null
             )
@@ -300,18 +301,18 @@ internal fun GoalGrid(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             InfoBox(
-                label = "Zieldatum",
-                value = dateText ?: if (goal == null) "—" else "Festlegen",
+                label = tr("Zieldatum", "Target date"),
+                value = dateText ?: if (goal == null) "—" else tr("Festlegen", "Set"),
                 onClick = onDateClick,
                 muted = dateText == null
             )
             InfoBox(
-                label = "Fortschritt",
+                label = tr("Fortschritt", "Progress"),
                 value = percentText ?: "—",
                 muted = percentText == null
             )
             InfoBox(
-                label = "Prognose",
+                label = tr("Prognose", "Forecast"),
                 value = forecastText ?: "—",
                 muted = forecast !is WeightForecast.Predicted && forecast != WeightForecast.Reached
             )
@@ -353,7 +354,7 @@ internal fun ChartCard(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Keine Messung im gewählten Zeitraum.",
+                    text = tr("Keine Messung im gewählten Zeitraum.", "No measurement in the selected range."),
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -419,7 +420,7 @@ internal fun AddWeightDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Gewicht eintragen") },
+        title = { Text(tr("Gewicht eintragen", "Log weight")) },
         text = {
             Column {
                 Row(
@@ -429,7 +430,7 @@ internal fun AddWeightDialog(
                 ) {
                     Column {
                         Text(
-                            text = "Datum",
+                            text = tr("Datum", "Date"),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -438,7 +439,7 @@ internal fun AddWeightDialog(
                             style = MaterialTheme.typography.titleMedium
                         )
                     }
-                    TextButton(onClick = onChangeDate) { Text("Ändern") }
+                    TextButton(onClick = onChangeDate) { Text(tr("Ändern", "Change")) }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -447,7 +448,7 @@ internal fun AddWeightDialog(
                     value = input,
                     onValueChange = onInputChange,
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Gewicht in kg") },
+                    label = { Text(tr("Gewicht in kg", "Weight in kg")) },
                     placeholder = { Text("z. B. 83,0") },
                     singleLine = true,
                     isError = error != null,
@@ -458,17 +459,17 @@ internal fun AddWeightDialog(
                 if (existingKgForDate != null) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Für dieses Datum gibt es schon einen Eintrag " +
+                        text = tr("Für dieses Datum gibt es schon einen Eintrag ", "There's already an entry for this date ") +
                                 "(${WeightFormat.weight(existingKgForDate)}). " +
-                                "Er wird überschrieben.",
+                                tr("Er wird überschrieben.", "It will be overwritten."),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onSave) { Text("Speichern") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }
+        confirmButton = { TextButton(onClick = onSave) { Text(tr("Speichern", "Save")) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Abbrechen", "Cancel")) } }
     )
 }
 
@@ -483,11 +484,11 @@ internal fun EntryActionDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Eintrag vom ${WeightFormat.date(dateEpochDay)}") },
+        title = { Text(tr("Eintrag vom ${WeightFormat.date(dateEpochDay)}", "Entry from ${WeightFormat.date(dateEpochDay)}")) },
         text = {
             Column {
                 Text(
-                    text = "Aktuell gespeichert: ${WeightFormat.weight(weightKg)}",
+                    text = tr("Aktuell gespeichert: ${WeightFormat.weight(weightKg)}", "Currently saved: ${WeightFormat.weight(weightKg)}"),
                     style = MaterialTheme.typography.bodyMedium
                 )
 
@@ -497,12 +498,12 @@ internal fun EntryActionDialog(
                     onClick = onDelete,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Löschen", color = MaterialTheme.colorScheme.error)
+                    Text(tr("Löschen", "Delete"), color = MaterialTheme.colorScheme.error)
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onEdit) { Text("Bearbeiten") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }
+        confirmButton = { TextButton(onClick = onEdit) { Text(tr("Bearbeiten", "Edit")) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Abbrechen", "Cancel")) } }
     )
 }
 
@@ -517,11 +518,11 @@ internal fun EditEntryDialog(
 ) {
     AlertDialog(
         onDismissRequest = onBack,
-        title = { Text("Gewicht bearbeiten") },
+        title = { Text(tr("Gewicht bearbeiten", "Edit weight")) },
         text = {
             Column {
                 Text(
-                    text = "Datum: ${WeightFormat.date(dateEpochDay)}",
+                    text = tr("Datum: ${WeightFormat.date(dateEpochDay)}", "Date: ${WeightFormat.date(dateEpochDay)}"),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -532,7 +533,7 @@ internal fun EditEntryDialog(
                     value = input,
                     onValueChange = onInputChange,
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Neues Gewicht in kg") },
+                    label = { Text(tr("Neues Gewicht in kg", "New weight in kg")) },
                     singleLine = true,
                     isError = error != null,
                     supportingText = error?.let { message -> { Text(message) } },
@@ -540,8 +541,8 @@ internal fun EditEntryDialog(
                 )
             }
         },
-        confirmButton = { TextButton(onClick = onSave) { Text("Speichern") } },
-        dismissButton = { TextButton(onClick = onBack) { Text("Zurück") } }
+        confirmButton = { TextButton(onClick = onSave) { Text(tr("Speichern", "Save")) } },
+        dismissButton = { TextButton(onClick = onBack) { Text(tr("Zurück", "Back")) } }
     )
 }
 
@@ -558,10 +559,10 @@ internal fun ConfirmDeleteDialog(
         text = { Text(message) },
         confirmButton = {
             TextButton(onClick = onConfirm) {
-                Text("Löschen", color = MaterialTheme.colorScheme.error)
+                Text(tr("Löschen", "Delete"), color = MaterialTheme.colorScheme.error)
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Abbrechen", "Cancel")) } }
     )
 }
 
@@ -574,15 +575,15 @@ internal fun UnusualValueDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Ungewöhnlicher Wert") },
+        title = { Text(tr("Ungewöhnlicher Wert", "Unusual value")) },
         text = {
             Text(
-                "Du hast ${WeightFormat.weight(weightKg)} eingegeben. " +
-                        "Das liegt außerhalb des üblichen Bereichs. Ist der Wert richtig?"
+                tr("Du hast ${WeightFormat.weight(weightKg)} eingegeben. ", "You entered ${WeightFormat.weight(weightKg)}. ") +
+                        tr("Das liegt außerhalb des üblichen Bereichs. Ist der Wert richtig?", "That's outside the usual range. Is it correct?")
             )
         },
-        confirmButton = { TextButton(onClick = onConfirm) { Text("Ja, speichern") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Korrigieren") } }
+        confirmButton = { TextButton(onClick = onConfirm) { Text(tr("Ja, speichern", "Yes, save")) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Korrigieren", "Fix")) } }
     )
 }
 
@@ -599,14 +600,14 @@ internal fun GoalWeightDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Zielgewicht") },
+        title = { Text(tr("Zielgewicht", "Target weight")) },
         text = {
             Column {
                 OutlinedTextField(
                     value = input,
                     onValueChange = onInputChange,
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Zielgewicht in kg") },
+                    label = { Text(tr("Zielgewicht in kg", "Target weight in kg")) },
                     placeholder = { Text("z. B. 85,0") },
                     singleLine = true,
                     isError = error != null,
@@ -617,13 +618,13 @@ internal fun GoalWeightDialog(
                 if (hasGoal) {
                     Spacer(modifier = Modifier.height(8.dp))
                     TextButton(onClick = onRemove) {
-                        Text("Ziel entfernen", color = MaterialTheme.colorScheme.error)
+                        Text(tr("Ziel entfernen", "Remove goal"), color = MaterialTheme.colorScheme.error)
                     }
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onSave) { Text("Speichern") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }
+        confirmButton = { TextButton(onClick = onSave) { Text(tr("Speichern", "Save")) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Abbrechen", "Cancel")) } }
     )
 }
 
@@ -640,7 +641,7 @@ internal fun InfoMessageDialog(
         text = { Text(message) },
         confirmButton = { TextButton(onClick = onConfirm) { Text(confirmLabel) } },
         dismissButton = onDismiss?.let { dismiss ->
-            { TextButton(onClick = dismiss) { Text("Abbrechen") } }
+            { TextButton(onClick = dismiss) { Text(tr("Abbrechen", "Cancel")) } }
         }
     )
 }

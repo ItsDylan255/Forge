@@ -1,5 +1,7 @@
 package com.example.fitnesstracker.domain.gym
 
+import com.example.fitnesstracker.i18n.tr
+
 /**
  * Inhalt der Trainings-Benachrichtigung. [chronometerBase] ist der Zeitstempel für die
  * Systemuhr der Benachrichtigung: Ablaufzeit bei [countDown], sonst Trainingsbeginn.
@@ -29,7 +31,7 @@ object WorkoutNotificationPlanner {
         restLabel: String,
         now: Long
     ): NotificationPlan {
-        val title = sessionName.ifBlank { "Training" }
+        val title = sessionName.ifBlank { tr("Training", "Workout") }
 
         return when {
             restEndsAt > now -> {
@@ -37,7 +39,7 @@ object WorkoutNotificationPlanner {
                 val elapsed = ((restTotalMillis - (restEndsAt - now)) / 1000L).toInt().coerceIn(0, max)
                 NotificationPlan(
                     title = title,
-                    text = if (restLabel.isBlank()) "Pause" else "Pause · $restLabel",
+                    text = if (restLabel.isBlank()) tr("Pause", "Rest") else tr("Pause · $restLabel", "Rest · $restLabel"),
                     chronometerBase = restEndsAt,
                     countDown = true,
                     progressMax = max,
@@ -47,7 +49,7 @@ object WorkoutNotificationPlanner {
 
             restEndsAt > 0L -> NotificationPlan(
                 title = title,
-                text = "Pause vorbei · weiter mit dem nächsten Satz",
+                text = tr("Pause vorbei · weiter mit dem nächsten Satz", "Rest over · on to the next set"),
                 chronometerBase = startedAt,
                 countDown = false,
                 progressMax = 0,
@@ -56,7 +58,7 @@ object WorkoutNotificationPlanner {
 
             else -> NotificationPlan(
                 title = title,
-                text = "Training läuft",
+                text = tr("Training läuft", "Workout in progress"),
                 chronometerBase = startedAt,
                 countDown = false,
                 progressMax = 0,

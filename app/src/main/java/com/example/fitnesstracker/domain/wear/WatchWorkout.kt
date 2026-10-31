@@ -10,6 +10,7 @@ import com.example.fitnesstracker.domain.gym.SetSide
 import com.example.fitnesstracker.domain.gym.WorkoutFlow
 import com.example.fitnesstracker.domain.gym.WorkoutSessionData
 import com.example.fitnesstracker.domain.gym.WorkoutSetData
+import com.example.fitnesstracker.i18n.tr
 
 /** Eine Übung der laufenden Routine mit allem, was die Uhr anzeigen soll. */
 data class WatchPlanItem(
@@ -107,18 +108,18 @@ object WatchWorkout {
         val kind = kinds[exerciseId] ?: ExerciseKind.REPS
         val name = names[exerciseId]
             ?: sessionSets.lastOrNull { it.exerciseId == exerciseId }?.exerciseName
-            ?: "Übung"
+            ?: tr("Übung", "Exercise")
         val doneOfExercise = sessionSets.count { it.exerciseId == exerciseId }
 
         val setText = when {
-            slot != null -> "Satz ${slot.setNumber} von ${planned?.plannedSets ?: slot.setNumber}" + sideText(slot.side)
-            planned != null && planned.plannedSets > 0 -> "Alle Sätze erledigt"
-            else -> "Satz ${doneOfExercise + 1}"
+            slot != null -> tr("Satz ${slot.setNumber} von ${planned?.plannedSets ?: slot.setNumber}", "Set ${slot.setNumber} of ${planned?.plannedSets ?: slot.setNumber}") + sideText(slot.side)
+            planned != null && planned.plannedSets > 0 -> tr("Alle Sätze erledigt", "All sets done")
+            else -> tr("Satz ${doneOfExercise + 1}", "Set ${doneOfExercise + 1}")
         }
 
         val targetText = planned?.takeIf { it.plannedSets > 0 }?.let {
             val range = GymFormat.repsRange(kind, it.repsMin, it.repsMax)
-            if (kind == ExerciseKind.TIME) "Ziel: $range" else "Ziel: $range Wdh."
+            if (kind == ExerciseKind.TIME) tr("Ziel: $range", "Target: $range") else tr("Ziel: $range Wdh.", "Target: $range reps")
         }
 
         val last = GymCalculator.lastPerformance(exerciseId, sessionId, sessions, sets)
@@ -128,13 +129,13 @@ object WatchWorkout {
             val number = slot?.setNumber ?: sameSide.size
             sameSide.getOrNull(number - 1) ?: sameSide.last()
         }
-        val lastText = lastSet?.let { "Letztes Mal: " + GymFormat.setText(it.kind, it.weightKg, it.reps) }
+        val lastText = lastSet?.let { tr("Letztes Mal: ", "Last time: ") + GymFormat.setText(it.kind, it.weightKg, it.reps) }
 
         // Rekord bei irgendeiner Übung der Seite (im Superset zählen beide)
         val recordText = page.firstNotNullOfOrNull { item ->
             if ((kinds[item.exerciseId] ?: ExerciseKind.REPS) != ExerciseKind.REPS) return@firstNotNullOfOrNull null
             OneRepMax.newRecord(item.exerciseId, sessionId, sessions, sets)?.let { (now, _) ->
-                "Neuer Rekord! 1RM ${GymFormat.kg(OneRepMax.roundToPlate(now))}"
+                tr("Neuer Rekord! 1RM ${GymFormat.kg(OneRepMax.roundToPlate(now))}", "New record! 1RM ${GymFormat.kg(OneRepMax.roundToPlate(now))}")
             }
         }
 
@@ -146,7 +147,7 @@ object WatchWorkout {
             setText = setText,
             targetText = targetText,
             lastText = lastText,
-            progressText = "Übung ${pageIndex + 1} von ${pages.size}",
+            progressText = tr("Übung ${pageIndex + 1} von ${pages.size}", "Exercise ${pageIndex + 1} of ${pages.size}"),
             superset = page.size > 1,
             recordText = recordText,
             rest = rest
@@ -155,8 +156,8 @@ object WatchWorkout {
 
     private fun sideText(side: SetSide): String = when (side) {
         SetSide.BOTH -> ""
-        SetSide.RIGHT -> " · rechts"
-        SetSide.LEFT -> " · links"
+        SetSide.RIGHT -> tr(" · rechts", " · right")
+        SetSide.LEFT -> tr(" · links", " · left")
     }
 }
 

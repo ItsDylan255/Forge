@@ -8,6 +8,7 @@ import com.example.fitnesstracker.data.local.Meal
 import com.example.fitnesstracker.data.local.MealIngredient
 import com.example.fitnesstracker.domain.food.MealIngredientData
 import com.example.fitnesstracker.domain.food.toData
+import com.example.fitnesstracker.i18n.tr
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -55,7 +56,7 @@ class MealViewModel(application: Application) : AndroidViewModel(application) {
             // Der Name muss eindeutig sein (ohne Beachtung der Groß-/Kleinschreibung)
             val duplicate = dao.findMealByName(cleanName)
             if (duplicate != null && duplicate.id != id) {
-                onDone("Eine Mahlzeit mit diesem Namen gibt es schon.")
+                onDone(tr("Eine Mahlzeit mit diesem Namen gibt es schon.", "A meal with this name already exists."))
                 return@launch
             }
 

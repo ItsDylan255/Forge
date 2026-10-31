@@ -1,5 +1,7 @@
 package com.example.fitnesstracker.domain.gym
 
+import com.example.fitnesstracker.i18n.L10n
+import com.example.fitnesstracker.i18n.tr
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.text.NumberFormat
@@ -12,9 +14,9 @@ import kotlin.math.abs
 
 object GymFormat {
 
-    private val locale: Locale = Locale.GERMANY
-    private val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy", locale)
-    private val clockFormatter = DateTimeFormatter.ofPattern("HH:mm", locale)
+    private val locale: Locale get() = L10n.locale
+    private val dateFormatter get() = DateTimeFormatter.ofPattern(tr("dd.MM.yyyy", "dd/MM/yyyy"), locale)
+    private val clockFormatter get() = DateTimeFormatter.ofPattern("HH:mm", locale)
 
     /** Zahl ohne unnötige Nachkommastellen: 80 -> "80", 82.5 -> "82,5". Auch zum Vorausfüllen. */
     fun number(value: Double): String {
@@ -23,7 +25,7 @@ object GymFormat {
             .setScale(2, RoundingMode.HALF_UP)
             .stripTrailingZeros()
             .toPlainString()
-            .replace('.', ',')
+            .let { if (L10n.isEnglish) it else it.replace('.', ',') }
     }
 
     fun kg(weightKg: Double): String = "${number(weightKg)} kg"
@@ -39,13 +41,13 @@ object GymFormat {
 
     /** "80 kg × 10" – bei 0 kg: "Körpergewicht × 15". */
     fun setText(weightKg: Double, reps: Int): String =
-        if (weightKg == 0.0) "Körpergewicht × $reps" else "${kg(weightKg)} × $reps"
+        if (weightKg == 0.0) tr("Körpergewicht × $reps", "Bodyweight × $reps") else "${kg(weightKg)} × $reps"
 
     fun repsRange(min: Int, max: Int): String = if (min == max) "$min" else "$min–$max"
 
     /** Pause einer Übung: 90 -> "1:30", 0 -> "Aus". */
     fun restLabel(seconds: Int): String =
-        if (seconds <= 0) "Aus" else String.format(locale, "%d:%02d", seconds / 60, seconds % 60)
+        if (seconds <= 0) tr("Aus", "Off") else String.format(locale, "%d:%02d", seconds / 60, seconds % 60)
 
     /** "4 × 8–12" */
     fun plan(sets: Int, repsMin: Int, repsMax: Int): String = "$sets × ${repsRange(repsMin, repsMax)}"
@@ -66,29 +68,29 @@ object GymFormat {
         val hours = totalMinutes / 60
         val minutes = totalMinutes % 60
         return when {
-            hours > 0 -> String.format(locale, "%d Std %02d Min", hours, minutes)
-            totalMinutes < 1 -> "< 1 Min"
-            else -> "$totalMinutes Min"
+            hours > 0 -> String.format(locale, tr("%d Std %02d Min", "%d h %02d min"), hours, minutes)
+            totalMinutes < 1 -> tr("< 1 Min", "< 1 min")
+            else -> tr("$totalMinutes Min", "$totalMinutes min")
         }
     }
 
     // ---------- Übungsarten ----------
 
     fun kindLabel(kind: ExerciseKind): String = when (kind) {
-        ExerciseKind.REPS -> "Wiederholungen"
-        ExerciseKind.TIME -> "Zeit"
-        ExerciseKind.ASSISTED -> "Assistiert"
+        ExerciseKind.REPS -> tr("Wiederholungen", "Reps")
+        ExerciseKind.TIME -> tr("Zeit", "Time")
+        ExerciseKind.ASSISTED -> tr("Assistiert", "Assisted")
     }
 
     /** Sekunden: 45 -> "45 Sek.", 90 -> "1:30 Min", 60 -> "1:00 Min". */
     fun secondsLabel(seconds: Int): String =
-        if (seconds < 60) "$seconds Sek."
-        else String.format(locale, "%d:%02d Min", seconds / 60, seconds % 60)
+        if (seconds < 60) tr("$seconds Sek.", "$seconds s")
+        else String.format(locale, tr("%d:%02d Min", "%d:%02d min"), seconds / 60, seconds % 60)
 
     /** Bereich je Art: "8–12", bei Zeitübungen "30–60 Sek.". */
     fun repsRange(kind: ExerciseKind, min: Int, max: Int): String =
         if (kind == ExerciseKind.TIME) {
-            if (min == max) secondsLabel(min) else "$min–$max Sek."
+            if (min == max) secondsLabel(min) else tr("$min–$max Sek.", "$min–$max s")
         } else {
             repsRange(min, max)
         }
@@ -106,14 +108,14 @@ object GymFormat {
         ExerciseKind.TIME ->
             if (weightKg == 0.0) secondsLabel(reps) else "${secondsLabel(reps)} · +${kg(weightKg)}"
         ExerciseKind.ASSISTED ->
-            if (weightKg == 0.0) "Ohne Unterstützung × $reps" else "${kg(weightKg)} Unterstützung × $reps"
+            if (weightKg == 0.0) tr("Ohne Unterstützung × $reps", "No assistance × $reps") else tr("${kg(weightKg)} Unterstützung × $reps", "${kg(weightKg)} assistance × $reps")
     }
 
     /** Ein Messwert in der Einheit der Art: "80 kg", "45 Sek." oder "20 kg Unterstützung". */
     fun metric(kind: ExerciseKind, value: Double): String = when (kind) {
         ExerciseKind.REPS -> kg(value)
         ExerciseKind.TIME -> secondsLabel(Math.round(value).toInt())
-        ExerciseKind.ASSISTED -> "${kg(value)} Unterstützung"
+        ExerciseKind.ASSISTED -> tr("${kg(value)} Unterstützung", "${kg(value)} assistance")
     }
 
     /** Dezenter Hinweis zur Progression. Null bei [ProgressionHint.NONE]. */
@@ -122,19 +124,19 @@ object GymFormat {
             ProgressionHint.NONE -> null
             ProgressionHint.REDUCE -> when (kind) {
                 ExerciseKind.REPS ->
-                    "\u2193 Letztes Mal unter $repsMin Wdh. in mindestens einem Satz: diesmal Gewicht reduzieren."
+                    tr("\u2193 Letztes Mal unter $repsMin Wdh. in mindestens einem Satz: diesmal Gewicht reduzieren.", "↓ Last time below $repsMin reps in at least one set: lower the weight this time.")
                 ExerciseKind.ASSISTED ->
-                    "\u2193 Letztes Mal unter $repsMin Wdh. in mindestens einem Satz: diesmal Unterstützung erhöhen."
+                    tr("\u2193 Letztes Mal unter $repsMin Wdh. in mindestens einem Satz: diesmal Unterstützung erhöhen.", "↓ Last time below $repsMin reps in at least one set: add more assistance this time.")
                 ExerciseKind.TIME ->
-                    "\u2193 Letztes Mal unter $repsMin Sek. in mindestens einem Satz: diesmal leichter machen."
+                    tr("\u2193 Letztes Mal unter $repsMin Sek. in mindestens einem Satz: diesmal leichter machen.", "↓ Last time below $repsMin s in at least one set: make it easier this time.")
             }
             ProgressionHint.INCREASE -> when (kind) {
                 ExerciseKind.REPS ->
-                    "\u2191 Letztes Mal alle Sätze bei $repsMax Wdh. oder mehr: Gewicht erhöhen möglich."
+                    tr("\u2191 Letztes Mal alle Sätze bei $repsMax Wdh. oder mehr: Gewicht erhöhen möglich.", "↑ Last time all sets at $repsMax reps or more: you can increase the weight.")
                 ExerciseKind.ASSISTED ->
-                    "\u2191 Letztes Mal alle Sätze bei $repsMax Wdh. oder mehr: Unterstützung verringern möglich."
+                    tr("\u2191 Letztes Mal alle Sätze bei $repsMax Wdh. oder mehr: Unterstützung verringern möglich.", "↑ Last time all sets at $repsMax reps or more: you can reduce the assistance.")
                 ExerciseKind.TIME ->
-                    "\u2191 Letztes Mal alle Sätze bei $repsMax Sek. oder mehr: Steigern möglich (Zusatzgewicht oder schwerere Variante)."
+                    tr("\u2191 Letztes Mal alle Sätze bei $repsMax Sek. oder mehr: Steigern möglich (Zusatzgewicht oder schwerere Variante).", "↑ Last time all sets at $repsMax s or more: you can progress (added weight or a harder variation).")
             }
         }
 
@@ -142,15 +144,15 @@ object GymFormat {
 
     /** Überschrift des Verlaufs je Messgröße. */
     fun totalLabel(metric: TotalMetric): String = when (metric) {
-        TotalMetric.VOLUME -> "GESAMTVOLUMEN PRO TRAINING"
-        TotalMetric.REPS -> "WIEDERHOLUNGEN GESAMT PRO TRAINING"
-        TotalMetric.TIME -> "GESAMTZEIT PRO TRAINING"
+        TotalMetric.VOLUME -> tr("GESAMTVOLUMEN PRO TRAINING", "TOTAL VOLUME PER WORKOUT")
+        TotalMetric.REPS -> tr("WIEDERHOLUNGEN GESAMT PRO TRAINING", "TOTAL REPS PER WORKOUT")
+        TotalMetric.TIME -> tr("GESAMTZEIT PRO TRAINING", "TOTAL TIME PER WORKOUT")
     }
 
     /** Summe eines Trainings: "1.240 kg", "24 Wdh." oder "2:30 Min". */
     fun total(metric: TotalMetric, value: Double): String = when (metric) {
         TotalMetric.VOLUME -> volume(value)
-        TotalMetric.REPS -> "${Math.round(value)} Wdh."
+        TotalMetric.REPS -> tr("${Math.round(value)} Wdh.", "${Math.round(value)} reps")
         TotalMetric.TIME -> secondsLabel(Math.round(value).toInt())
     }
 

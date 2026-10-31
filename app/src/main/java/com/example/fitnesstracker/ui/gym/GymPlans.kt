@@ -30,6 +30,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.fitnesstracker.data.local.GymPlan
 import com.example.fitnesstracker.domain.gym.RoutinePlans
 import com.example.fitnesstracker.domain.gym.RoutineRef
+import com.example.fitnesstracker.i18n.tr
 import com.example.fitnesstracker.ui.weight.ForgeCard
 
 /** Ein Eintrag im ⋮-Menü. */
@@ -85,15 +86,15 @@ internal fun PlanNameDialog(
                 value = name,
                 onValueChange = { name = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Name des Plans") },
-                placeholder = { Text("z. B. Fitnessbasic") },
+                label = { Text(tr("Name des Plans", "Plan name")) },
+                placeholder = { Text(tr("z. B. Fitnessbasic", "e.g. Full body")) },
                 singleLine = true,
                 isError = error != null,
                 supportingText = error?.let { message -> { Text(message) } }
             )
         },
-        confirmButton = { TextButton(onClick = { onSave(name) }) { Text("Speichern") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }
+        confirmButton = { TextButton(onClick = { onSave(name) }) { Text(tr("Speichern", "Save")) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Abbrechen", "Cancel")) } }
     )
 }
 
@@ -105,16 +106,16 @@ internal fun DuplicatePlanDialog(
     onSave: (name: String, deload: Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var name by remember { mutableStateOf("$planName Kopie") }
+    var name by remember { mutableStateOf(tr("$planName Kopie", "$planName copy")) }
     var deload by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Plan duplizieren") },
+        title = { Text(tr("Plan duplizieren", "Duplicate plan")) },
         text = {
             Column {
                 Text(
-                    text = "Alle aktiven Routinen werden mit ihren Übungen kopiert. Der alte Plan und sein Verlauf bleiben unverändert.",
+                    text = tr("Alle aktiven Routinen werden mit ihren Übungen kopiert. Der alte Plan und sein Verlauf bleiben unverändert.", "All active routines are copied with their exercises. The old plan and its history stay unchanged."),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -123,7 +124,7 @@ internal fun DuplicatePlanDialog(
                     value = name,
                     onValueChange = { name = it },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Name des neuen Plans") },
+                    label = { Text(tr("Name des neuen Plans", "Name of the new plan")) },
                     singleLine = true,
                     isError = error != null,
                     supportingText = error?.let { message -> { Text(message) } }
@@ -137,7 +138,7 @@ internal fun DuplicatePlanDialog(
                     Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                         Text("Deload", style = MaterialTheme.typography.bodyMedium)
                         Text(
-                            text = "Ein Satz weniger pro Übung (mindestens einer)",
+                            text = tr("Ein Satz weniger pro Übung (mindestens einer)", "One set less per exercise (at least one)"),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -146,8 +147,8 @@ internal fun DuplicatePlanDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(name, deload) }) { Text("Duplizieren") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }
+        confirmButton = { TextButton(onClick = { onSave(name, deload) }) { Text(tr("Duplizieren", "Duplicate")) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Abbrechen", "Cancel")) } }
     )
 }
 
@@ -165,7 +166,7 @@ internal fun PlanPickerDialog(
 
     if (creating) {
         PlanNameDialog(
-            title = "Neuer Plan",
+            title = tr("Neuer Plan", "New plan"),
             initialName = "",
             error = error,
             onSave = { name ->
@@ -186,12 +187,12 @@ internal fun PlanPickerDialog(
     }
 
     val options: List<Pair<Long?, String>> =
-        listOf<Pair<Long?, String>>(null to "Kein Plan") +
+        listOf<Pair<Long?, String>>(null to tr("Kein Plan", "No plan")) +
                 plans.filter { it.archivedAt == null }.map { it.id to it.name }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Trainingsplan") },
+        title = { Text(tr("Trainingsplan", "Training plan")) },
         text = {
             Column {
                 options.forEach { (id, label) ->
@@ -206,10 +207,10 @@ internal fun PlanPickerDialog(
                     }
                 }
 
-                TextButton(onClick = { creating = true }) { Text("+ Neuer Plan") }
+                TextButton(onClick = { creating = true }) { Text(tr("+ Neuer Plan", "+ New plan")) }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Schließen") } }
+        confirmButton = { TextButton(onClick = onDismiss) { Text(tr("Schließen", "Close")) } }
     )
 }
 
@@ -225,23 +226,23 @@ fun RoutineArchiveScreen(viewModel: GymViewModel, onBack: () -> Unit) {
     var deleteRoutineId by remember { mutableStateOf<Long?>(null) }
 
     GymPage {
-        GymHeader(title = "Archiv", onBack = onBack)
+        GymHeader(title = tr("Archiv", "Archive"), onBack = onBack)
 
         Spacer(modifier = Modifier.height(16.dp))
 
         if (archive.isEmpty) {
-            EmptyHint("Das Archiv ist leer. Archivierte Routinen und Pläne verschwinden aus der Auswahl, ihr Verlauf bleibt erhalten.")
+            EmptyHint(tr("Das Archiv ist leer. Archivierte Routinen und Pläne verschwinden aus der Auswahl, ihr Verlauf bleibt erhalten.", "The archive is empty. Archived routines and plans disappear from the selection, their history is kept."))
             return@GymPage
         }
 
         if (archive.plans.isNotEmpty()) {
-            GroupLabel("Pläne")
+            GroupLabel(tr("Pläne", "Plans"))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 archive.plans.forEach { group ->
                     val plan = group.plan ?: return@forEach
                     ArchiveCard(
                         title = plan.name,
-                        subtitle = if (group.routines.isEmpty()) "Keine Routinen"
+                        subtitle = if (group.routines.isEmpty()) tr("Keine Routinen", "No routines")
                         else group.routines.joinToString(", ") { it.name },
                         onRestore = { viewModel.setPlanArchived(plan.id, archived = false) },
                         onDelete = { deletePlanId = plan.id }
@@ -251,7 +252,7 @@ fun RoutineArchiveScreen(viewModel: GymViewModel, onBack: () -> Unit) {
         }
 
         if (archive.routines.isNotEmpty()) {
-            GroupLabel("Routinen")
+            GroupLabel(tr("Routinen", "Routines"))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 archive.routines.forEach { routine ->
                     ArchiveCard(
@@ -267,9 +268,9 @@ fun RoutineArchiveScreen(viewModel: GymViewModel, onBack: () -> Unit) {
 
     deletePlanId?.let { id ->
         ConfirmDialog(
-            title = "Plan löschen?",
-            message = "Nur der Plan wird gelöscht. Seine Routinen bleiben erhalten und sind danach ohne Plan.",
-            confirmLabel = "Löschen",
+            title = tr("Plan löschen?", "Delete plan?"),
+            message = tr("Nur der Plan wird gelöscht. Seine Routinen bleiben erhalten und sind danach ohne Plan.", "Only the plan is deleted. Its routines are kept and will have no plan."),
+            confirmLabel = tr("Löschen", "Delete"),
             onConfirm = {
                 viewModel.deletePlan(id)
                 deletePlanId = null
@@ -280,9 +281,9 @@ fun RoutineArchiveScreen(viewModel: GymViewModel, onBack: () -> Unit) {
 
     deleteRoutineId?.let { id ->
         ConfirmDialog(
-            title = "Routine löschen?",
-            message = "Die Routine wird endgültig gelöscht. Bereits absolvierte Trainings im Verlauf bleiben erhalten.",
-            confirmLabel = "Löschen",
+            title = tr("Routine löschen?", "Delete routine?"),
+            message = tr("Die Routine wird endgültig gelöscht. Bereits absolvierte Trainings im Verlauf bleiben erhalten.", "The routine will be deleted permanently. Completed workouts in your history are kept."),
+            confirmLabel = tr("Löschen", "Delete"),
             onConfirm = {
                 viewModel.deleteRoutine(id)
                 deleteRoutineId = null
@@ -319,8 +320,8 @@ private fun ArchiveCard(
                     )
                 }
             }
-            TextButton(onClick = onRestore) { Text("Wiederherstellen") }
-            OverflowMenu(listOf(MenuAction("Löschen", destructive = true, onClick = onDelete)))
+            TextButton(onClick = onRestore) { Text(tr("Wiederherstellen", "Restore")) }
+            OverflowMenu(listOf(MenuAction(tr("Löschen", "Delete"), destructive = true, onClick = onDelete)))
         }
     }
 }

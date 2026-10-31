@@ -1,5 +1,7 @@
 package com.example.fitnesstracker.domain.gym
 
+import com.example.fitnesstracker.i18n.tr
+
 sealed interface GymParseResult<out T> {
     data class Valid<T>(val value: T) : GymParseResult<T>
     data class Invalid(val message: String) : GymParseResult<Nothing>
@@ -24,23 +26,23 @@ object GymInputParser {
     /** Gewicht in kg. 0 ist erlaubt (Körpergewichtsübungen). Komma oder Punkt, "kg" optional. */
     fun parseWeight(input: String): GymParseResult<Double> {
         val cleaned = input.trim().replace(KG_SUFFIX, "").trim()
-        if (cleaned.isEmpty()) return GymParseResult.Invalid("Bitte gib ein Gewicht ein.")
+        if (cleaned.isEmpty()) return GymParseResult.Invalid(tr("Bitte gib ein Gewicht ein.", "Please enter a weight."))
         if (!DECIMAL.matches(cleaned)) {
-            return GymParseResult.Invalid("Bitte gib eine Zahl ein, z. B. 82,5.")
+            return GymParseResult.Invalid(tr("Bitte gib eine Zahl ein, z. B. 82,5.", "Please enter a number, e.g. 82.5."))
         }
         val value = cleaned.replace(',', '.').toDoubleOrNull()
-            ?: return GymParseResult.Invalid("Bitte gib eine Zahl ein, z. B. 82,5.")
+            ?: return GymParseResult.Invalid(tr("Bitte gib eine Zahl ein, z. B. 82,5.", "Please enter a number, e.g. 82.5."))
         if (value > MAX_WEIGHT_KG) {
-            return GymParseResult.Invalid("Das Gewicht darf höchstens ${MAX_WEIGHT_KG.toInt()} kg betragen.")
+            return GymParseResult.Invalid(tr("Das Gewicht darf höchstens ${MAX_WEIGHT_KG.toInt()} kg betragen.", "The weight can be at most ${MAX_WEIGHT_KG.toInt()} kg."))
         }
         return GymParseResult.Valid(value)
     }
 
     fun parseReps(input: String): GymParseResult<Int> =
-        parseInt(input, 1, MAX_REPS, "Wiederholungen")
+        parseInt(input, 1, MAX_REPS, tr("Wiederholungen", "Reps"))
 
     fun parsePlannedSets(input: String): GymParseResult<Int> =
-        parseInt(input, 1, MAX_PLANNED_SETS, "Sätze")
+        parseInt(input, 1, MAX_PLANNED_SETS, tr("Sätze", "Sets"))
 
     /**
      * Wiederholungsbereich aus zwei getrennten Feldern ("Min. Wdh." und "Max. Wdh.").
@@ -48,17 +50,17 @@ object GymInputParser {
      * Gleiche Werte (z. B. 10 und 10) sind erlaubt.
      */
     fun parseRepsBounds(minInput: String, maxInput: String): GymParseResult<IntRange> {
-        val min = when (val result = parseInt(minInput, 1, MAX_REPS, "Min. Wdh.")) {
+        val min = when (val result = parseInt(minInput, 1, MAX_REPS, tr("Min. Wdh.", "Min. reps"))) {
             is GymParseResult.Valid -> result.value
             is GymParseResult.Invalid -> return result
         }
-        val max = when (val result = parseInt(maxInput, 1, MAX_REPS, "Max. Wdh.")) {
+        val max = when (val result = parseInt(maxInput, 1, MAX_REPS, tr("Max. Wdh.", "Max. reps"))) {
             is GymParseResult.Valid -> result.value
             is GymParseResult.Invalid -> return result
         }
 
         return if (min > max) {
-            GymParseResult.Invalid("Min. Wdh. darf nicht größer als Max. Wdh. sein.")
+            GymParseResult.Invalid(tr("Min. Wdh. darf nicht größer als Max. Wdh. sein.", "Min. reps can't be greater than max. reps."))
         } else {
             GymParseResult.Valid(min..max)
         }
@@ -69,21 +71,21 @@ object GymInputParser {
         if (input.isBlank()) GymParseResult.Valid(0.0) else parseWeight(input)
 
     /** Sekunden einer Zeitübung: "45", "45 s", "45 Sek" oder "1:30". Ganze Sekunden von 1 bis 3600. */
-    fun parseSeconds(input: String): GymParseResult<Int> = parseSecondsLabeled(input, "Sekunden")
+    fun parseSeconds(input: String): GymParseResult<Int> = parseSecondsLabeled(input, tr("Sekunden", "Seconds"))
 
     /** Zeitbereich aus zwei Feldern ("Min. Sek." und "Max. Sek."), Min darf nicht größer als Max sein. */
     fun parseSecondsBounds(minInput: String, maxInput: String): GymParseResult<IntRange> {
-        val min = when (val result = parseSecondsLabeled(minInput, "Min. Sek.")) {
+        val min = when (val result = parseSecondsLabeled(minInput, tr("Min. Sek.", "Min. sec"))) {
             is GymParseResult.Valid -> result.value
             is GymParseResult.Invalid -> return result
         }
-        val max = when (val result = parseSecondsLabeled(maxInput, "Max. Sek.")) {
+        val max = when (val result = parseSecondsLabeled(maxInput, tr("Max. Sek.", "Max. sec"))) {
             is GymParseResult.Valid -> result.value
             is GymParseResult.Invalid -> return result
         }
 
         return if (min > max) {
-            GymParseResult.Invalid("Min. Sek. darf nicht größer als Max. Sek. sein.")
+            GymParseResult.Invalid(tr("Min. Sek. darf nicht größer als Max. Sek. sein.", "Min. sec can't be greater than max. sec."))
         } else {
             GymParseResult.Valid(min..max)
         }
@@ -91,7 +93,7 @@ object GymInputParser {
 
     private fun parseSecondsLabeled(input: String, label: String): GymParseResult<Int> {
         val cleaned = input.trim().replace(SECONDS_SUFFIX, "").trim()
-        if (cleaned.isEmpty()) return GymParseResult.Invalid("Bitte gib $label ein.")
+        if (cleaned.isEmpty()) return GymParseResult.Invalid(tr("Bitte gib $label ein.", "$label is required."))
 
         val clock = CLOCK.matchEntire(cleaned)
         val value: Int? = when {
@@ -101,11 +103,11 @@ object GymInputParser {
                 minutes?.let { it * 60 + seconds }
             }
             INTEGER.matches(cleaned) -> cleaned.toIntOrNull()
-            else -> return GymParseResult.Invalid("$label: bitte Sekunden oder m:ss eingeben.")
+            else -> return GymParseResult.Invalid(tr("$label: bitte Sekunden oder m:ss eingeben.", "$label: please enter seconds or m:ss."))
         }
 
         return if (value == null || value < 1 || value > MAX_SECONDS) {
-            GymParseResult.Invalid("$label: 1 bis $MAX_SECONDS.")
+            GymParseResult.Invalid(tr("$label: 1 bis $MAX_SECONDS.", "$label: 1 to $MAX_SECONDS."))
         } else {
             GymParseResult.Valid(value)
         }
@@ -114,20 +116,20 @@ object GymInputParser {
     fun parseName(input: String): GymParseResult<String> {
         val cleaned = input.trim()
         return when {
-            cleaned.isEmpty() -> GymParseResult.Invalid("Der Name darf nicht leer sein.")
+            cleaned.isEmpty() -> GymParseResult.Invalid(tr("Der Name darf nicht leer sein.", "The name can't be empty."))
             cleaned.length > MAX_NAME_LENGTH ->
-                GymParseResult.Invalid("Der Name darf höchstens $MAX_NAME_LENGTH Zeichen haben.")
+                GymParseResult.Invalid(tr("Der Name darf höchstens $MAX_NAME_LENGTH Zeichen haben.", "The name can have at most $MAX_NAME_LENGTH characters."))
             else -> GymParseResult.Valid(cleaned)
         }
     }
 
     private fun parseInt(input: String, min: Int, max: Int, label: String): GymParseResult<Int> {
         val cleaned = input.trim()
-        if (cleaned.isEmpty()) return GymParseResult.Invalid("Bitte gib $label ein.")
-        if (!INTEGER.matches(cleaned)) return GymParseResult.Invalid("$label: bitte eine ganze Zahl eingeben.")
+        if (cleaned.isEmpty()) return GymParseResult.Invalid(tr("Bitte gib $label ein.", "$label is required."))
+        if (!INTEGER.matches(cleaned)) return GymParseResult.Invalid(tr("$label: bitte eine ganze Zahl eingeben.", "$label: please enter a whole number."))
         val value = cleaned.toIntOrNull()
         return if (value == null || value < min || value > max) {
-            GymParseResult.Invalid("$label: $min bis $max.")
+            GymParseResult.Invalid(tr("$label: $min bis $max.", "$label: $min to $max."))
         } else {
             GymParseResult.Valid(value)
         }

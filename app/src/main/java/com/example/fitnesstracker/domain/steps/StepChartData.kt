@@ -1,8 +1,13 @@
 package com.example.fitnesstracker.domain.steps
 
-enum class StepChartRange(val label: String, val days: Int) {
-    WEEK("7 Tage", 7),
-    MONTH("30 Tage", 30)
+import com.example.fitnesstracker.i18n.tr
+
+enum class StepChartRange(private val de: String, private val en: String, val days: Int) {
+    WEEK("7 Tage", "7 days", 7),
+    MONTH("30 Tage", "30 days", 30);
+
+    /** Text in der aktuellen Sprache. */
+    val label: String get() = tr(de, en)
 }
 
 data class StepBar(

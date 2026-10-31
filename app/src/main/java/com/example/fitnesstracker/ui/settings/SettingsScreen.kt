@@ -1,12 +1,15 @@
 package com.example.fitnesstracker.ui.settings
 
 import android.Manifest
+import android.app.Activity
 import android.app.AlarmManager
 import android.hardware.Sensor
 import android.hardware.SensorManager
 import android.net.Uri
 import android.os.PowerManager
 import android.os.SystemClock
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
@@ -19,10 +22,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,10 +44,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.fitnesstracker.i18n.AppLanguage
+import com.example.fitnesstracker.i18n.L10n
+import com.example.fitnesstracker.i18n.tr
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -87,9 +96,13 @@ fun SettingsScreen(
     var showProfile by rememberSaveable { mutableStateOf(false) }
 
     GymPage {
-        GymHeader(title = "Einstellungen", onBack = onBack)
+        GymHeader(title = tr("Einstellungen", "Settings"), onBack = onBack)
 
-        GroupLabel("Erinnerungen")
+        GroupLabel(tr("Sprache", "Language"))
+
+        LanguageCard()
+
+        GroupLabel(tr("Erinnerungen", "Reminders"))
 
         ReminderCard()
 
@@ -97,40 +110,40 @@ fun SettingsScreen(
 
         TrainingCard()
 
-        GroupLabel("Schritte")
+        GroupLabel(tr("Schritte", "Steps"))
 
         StepDiagnosticsCard()
 
-        GroupLabel("Profil")
+        GroupLabel(tr("Profil", "Profile"))
 
         ForgeCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(20.dp)) {
                 val p = profile
                 if (p == null) {
                     Text(
-                        text = "Noch kein Profil. Es wird für dein Kalorienziel gebraucht.",
+                        text = tr("Noch kein Profil. Es wird für dein Kalorienziel gebraucht.", "No profile yet. It's needed for your calorie goal."),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 } else {
-                    ProfileLine("Größe", "${p.heightCm} cm")
-                    ProfileLine("Alter", "${p.ageYears} Jahre")
-                    ProfileLine("Geschlecht", sexLabel(p.sex))
-                    ProfileLine("Aktivität", activityLabel(p.activity))
-                    ProfileLine("Makros", macroText(p))
+                    ProfileLine(tr("Größe", "Height"), "${p.heightCm} cm")
+                    ProfileLine(tr("Alter", "Age"), tr("${p.ageYears} Jahre", "${p.ageYears} years"))
+                    ProfileLine(tr("Geschlecht", "Sex"), sexLabel(p.sex))
+                    ProfileLine(tr("Aktivität", "Activity"), activityLabel(p.activity))
+                    ProfileLine(tr("Makros", "Macros"), macroText(p))
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = { showProfile = true }) {
-                        Text(if (p == null) "Profil anlegen" else "Profil bearbeiten")
+                        Text(if (p == null) tr("Profil anlegen", "Create profile") else tr("Profil bearbeiten", "Edit profile"))
                     }
                 }
             }
         }
 
-        GroupLabel("Berechnung")
+        GroupLabel(tr("Berechnung", "Calculation"))
 
         CalorieGoalCard(
             hasProfile = profile != null,
@@ -139,7 +152,7 @@ fun SettingsScreen(
             showEditButton = false
         )
 
-        GroupLabel("Daten")
+        GroupLabel(tr("Daten", "Data"))
 
         ExportCard()
     }
@@ -157,7 +170,7 @@ fun SettingsScreen(
 }
 
 private fun macroText(p: CalorieProfile): String =
-    "${p.split.proteinPercent} % Protein \u00B7 ${p.split.carbsPercent} % Carbs \u00B7 ${p.split.fatPercent} % Fett"
+    tr("${p.split.proteinPercent} % Protein \u00B7 ${p.split.carbsPercent} % Carbs \u00B7 ${p.split.fatPercent} % Fett", "${p.split.proteinPercent} % protein · ${p.split.carbsPercent} % carbs · ${p.split.fatPercent} % fat")
 
 @Composable
 private fun ProfileLine(label: String, value: String) {
@@ -178,6 +191,55 @@ private fun ProfileLine(label: String, value: String) {
             modifier = Modifier.padding(start = 16.dp)
         )
     }
+}
+
+/** Sprache der App. Nach dem Wechsel wird der Bildschirm neu aufgebaut, damit alle Texte passen. */
+@Composable
+private fun LanguageCard() {
+    val context = LocalContext.current
+    val selected = remember { L10n.load(context) }
+
+    val options = listOf(
+        AppLanguage.SYSTEM to tr("Wie das System", "Same as system"),
+        AppLanguage.GERMAN to "Deutsch",
+        AppLanguage.ENGLISH to "English"
+    )
+
+    ForgeCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+            options.forEach { (language, label) ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .selectable(
+                            selected = language == selected,
+                            role = Role.RadioButton,
+                            onClick = {
+                                if (language != selected) {
+                                    L10n.save(context, language)
+                                    context.findActivity()?.recreate()
+                                }
+                            }
+                        )
+                        .padding(horizontal = 20.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(selected = language == selected, onClick = null)
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(start = 12.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 /** Tägliche Erinnerung, das Gewicht einzutragen (nur wenn für heute noch nichts eingetragen ist). */
@@ -217,9 +279,9 @@ private fun ReminderCard() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                    Text(text = "Gewicht-Erinnerung", style = MaterialTheme.typography.titleMedium)
+                    Text(text = tr("Gewicht-Erinnerung", "Weight reminder"), style = MaterialTheme.typography.titleMedium)
                     Text(
-                        text = "Täglich, nur wenn heute noch kein Gewicht eingetragen ist.",
+                        text = tr("Täglich, nur wenn heute noch kein Gewicht eingetragen ist.", "Daily, only if you haven't logged your weight today."),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -245,7 +307,7 @@ private fun ReminderCard() {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Uhrzeit",
+                        text = tr("Uhrzeit", "Time"),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -261,8 +323,8 @@ private fun ReminderCard() {
                 if (!notificationsOn) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Benachrichtigungen sind für Forge ausgeschaltet. " +
-                                "Erlaube sie in den Android-Einstellungen.",
+                        text = tr("Benachrichtigungen sind für Forge ausgeschaltet. ", "Notifications are turned off for Forge. ") +
+                                tr("Erlaube sie in den Android-Einstellungen.", "Allow them in the Android settings."),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error
                     )
@@ -273,7 +335,7 @@ private fun ReminderCard() {
                                     .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
                             )
                         }
-                    ) { Text("Einstellungen öffnen") }
+                    ) { Text(tr("Einstellungen öffnen", "Open settings")) }
                 }
             }
         }
@@ -307,17 +369,17 @@ private fun ExportCard() {
         running = true
         status = null
         scope.launch {
-            status = DataExporter.writeZip(context, uri) ?: "Export gespeichert."
+            status = DataExporter.writeZip(context, uri) ?: tr("Export gespeichert.", "Export saved.")
             running = false
         }
     }
 
     ForgeCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(20.dp)) {
-            Text(text = "Daten exportieren", style = MaterialTheme.typography.titleMedium)
+            Text(text = tr("Daten exportieren", "Export data"), style = MaterialTheme.typography.titleMedium)
             Text(
-                text = "Eine ZIP-Datei mit CSV-Tabellen: Gewicht, Schritte, Ernährung und Training, " +
-                        "dazu eine Übersicht pro Tag. Lässt sich in Excel, Google Sheets oder Python öffnen.",
+                text = tr("Eine ZIP-Datei mit CSV-Tabellen: Gewicht, Schritte, Ernährung und Training, ", "A ZIP file with CSV tables: weight, steps, nutrition and training, ") +
+                        tr("dazu eine Übersicht pro Tag. Lässt sich in Excel, Google Sheets oder Python öffnen.", "plus a daily summary. Opens in Excel, Google Sheets or Python."),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -331,7 +393,7 @@ private fun ExportCard() {
                 TextButton(
                     onClick = { launcher.launch(DataExport.fileName(LocalDate.now())) },
                     enabled = !running
-                ) { Text(if (running) "Exportiert …" else "Exportieren") }
+                ) { Text(if (running) tr("Exportiert …", "Exporting …") else tr("Exportieren", "Export")) }
             }
         }
     }
@@ -350,10 +412,10 @@ private fun TimePickerDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Uhrzeit wählen") },
+        title = { Text(tr("Uhrzeit wählen", "Choose time")) },
         text = { TimePicker(state = state) },
         confirmButton = { TextButton(onClick = { onConfirm(state.hour, state.minute) }) { Text("OK") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Abbrechen", "Cancel")) } }
     )
 }
 
@@ -369,8 +431,8 @@ private fun TrainingCard() {
     ForgeCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(20.dp)) {
             SwitchLine(
-                title = "Signalton am Pausenende",
-                description = "Zwei Töne in der Medien-Lautstärke deines Handys.",
+                title = tr("Signalton am Pausenende", "Sound when rest ends"),
+                description = tr("Zwei Töne in der Medien-Lautstärke deines Handys.", "Two beeps at your phone's media volume."),
                 checked = sound,
                 onChange = {
                     sound = it
@@ -381,8 +443,8 @@ private fun TrainingCard() {
             Spacer(modifier = Modifier.height(12.dp))
 
             SwitchLine(
-                title = "Vibration am Pausenende",
-                description = "Zweimal kurz, auch bei gesperrtem Bildschirm.",
+                title = tr("Vibration am Pausenende", "Vibrate when rest ends"),
+                description = tr("Zweimal kurz, auch bei gesperrtem Bildschirm.", "Two short buzzes, even with the screen locked."),
                 checked = vibration,
                 onChange = {
                     vibration = it
@@ -394,7 +456,7 @@ private fun TrainingCard() {
                 TextButton(
                     onClick = { RestSignal.play(context, sound, vibration) },
                     enabled = sound || vibration
-                ) { Text("Signal testen") }
+                ) { Text(tr("Signal testen", "Test signal")) }
             }
         }
     }
@@ -458,14 +520,14 @@ private fun StepDiagnosticsCard() {
     val ignoresBattery = context.getSystemService(PowerManager::class.java)
         ?.isIgnoringBatteryOptimizations(context.packageName) == true
 
-    val timeFormat = remember { DateTimeFormatter.ofPattern("dd.MM. HH:mm") }
+    val timeFormat = remember { DateTimeFormatter.ofPattern(tr("dd.MM. HH:mm", "dd/MM HH:mm")) }
 
     ForgeCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(20.dp)) {
             SwitchLine(
-                title = "Im Hintergrund zählen",
-                description = "Zeigt eine kleine, stumme Benachrichtigung mit deinen Schritten. " +
-                        "Nur so liefert Android den Schrittzähler auch bei gesperrtem Handy zuverlässig.",
+                title = tr("Im Hintergrund zählen", "Count in the background"),
+                description = tr("Zeigt eine kleine, stumme Benachrichtigung mit deinen Schritten. ", "Shows a small, silent notification with your steps. ") +
+                        tr("Nur so liefert Android den Schrittzähler auch bei gesperrtem Handy zuverlässig.", "That's the only way Android reliably delivers step counts while the phone is locked."),
                 checked = background,
                 onChange = {
                     background = it
@@ -476,10 +538,10 @@ private fun StepDiagnosticsCard() {
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            ProfileLine("Zähl-Dienst", if (serviceRunning) "läuft" else "aus")
-            ProfileLine("Schrittzähler-Sensor", if (hasSensor) "vorhanden" else "fehlt")
-            ProfileLine("Berechtigung Aktivität", if (hasPermission) "erteilt" else "fehlt")
-            ProfileLine("Akku-Optimierung", if (ignoresBattery) "ausgenommen" else "aktiv")
+            ProfileLine(tr("Zähl-Dienst", "Counting service"), if (serviceRunning) tr("läuft", "running") else tr("aus", "off"))
+            ProfileLine(tr("Schrittzähler-Sensor", "Step counter sensor"), if (hasSensor) tr("vorhanden", "available") else tr("fehlt", "missing"))
+            ProfileLine(tr("Berechtigung Aktivität", "Activity permission"), if (hasPermission) tr("erteilt", "granted") else tr("fehlt", "missing"))
+            ProfileLine(tr("Akku-Optimierung", "Battery optimization"), if (ignoresBattery) tr("ausgenommen", "exempt") else tr("aktiv", "active"))
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -494,29 +556,29 @@ private fun StepDiagnosticsCard() {
                                 )
                             )
                         }
-                    ) { Text("Akku-Ausnahme") }
+                    ) { Text(tr("Akku-Ausnahme", "Battery exemption")) }
                 }
 
-                TextButton(onClick = { StepTracking.restart(context) }) { Text("Neu starten") }
+                TextButton(onClick = { StepTracking.restart(context) }) { Text(tr("Neu starten", "Restart")) }
             }
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 TextButton(onClick = { showReset = true }) {
-                    Text("Schrittdaten zurücksetzen", color = MaterialTheme.colorScheme.error)
+                    Text(tr("Schrittdaten zurücksetzen", "Reset step data"), color = MaterialTheme.colorScheme.error)
                 }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Letzte Messwerte",
+                text = tr("Letzte Messwerte", "Latest readings"),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             if (recent.isEmpty()) {
                 Text(
-                    text = "Noch kein Messwert.",
+                    text = tr("Noch kein Messwert.", "No readings yet."),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -525,7 +587,7 @@ private fun StepDiagnosticsCard() {
                     val time = Instant.ofEpochMilli(sample.timeMillis).atZone(ZoneId.systemDefault())
                         .format(timeFormat)
                     Text(
-                        text = "$time \u00B7 Rohwert ${sample.total}",
+                        text = tr("$time \u00B7 Rohwert ${sample.total}", "$time · raw value ${sample.total}"),
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(top = 4.dp)
                     )
@@ -536,9 +598,9 @@ private fun StepDiagnosticsCard() {
 
     if (showReset) {
         ConfirmDialog(
-            title = "Schrittdaten zurücksetzen?",
-            message = "Alle Tageswerte und Messwerte der Schritte werden gelöscht. Danach zählt die App von vorn.",
-            confirmLabel = "Zurücksetzen",
+            title = tr("Schrittdaten zurücksetzen?", "Reset step data?"),
+            message = tr("Alle Tageswerte und Messwerte der Schritte werden gelöscht. Danach zählt die App von vorn.", "All daily step totals and readings will be deleted. The app then starts counting from scratch."),
+            confirmLabel = tr("Zurücksetzen", "Reset"),
             onConfirm = {
                 scope.launch { repository.resetAll() }
                 showReset = false

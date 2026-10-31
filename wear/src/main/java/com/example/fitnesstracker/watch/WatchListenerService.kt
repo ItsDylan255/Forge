@@ -20,11 +20,17 @@ import com.google.android.gms.wearable.WearableListenerService
  */
 class WatchListenerService : WearableListenerService() {
 
+    override fun onCreate() {
+        super.onCreate()
+        WatchLang.init(this)
+    }
+
     override fun onDataChanged(events: DataEventBuffer) {
         events.forEach { event ->
             if (event.type != DataEvent.TYPE_CHANGED) return@forEach
             val item = event.dataItem
             val map = DataMapItem.fromDataItem(item).dataMap
+            WatchLang.update(this, map)
             when (item.uri.path) {
                 WearProtocol.PATH_WORKOUT -> applyWorkout(this, WorkoutState.from(map))
                 WearProtocol.PATH_TODAY -> applyToday(this, TodayState.from(map))
@@ -49,6 +55,7 @@ class WatchListenerService : WearableListenerService() {
 
         fun applyToday(context: Context, today: TodayState) {
             TodayStore(context).save(today)
+            WatchStore.setToday(today)
             TileService.getUpdater(context).requestUpdate(ForgeTileService::class.java)
             ComplicationDataSourceUpdateRequester
                 .create(context, ComponentName(context, StepsComplicationService::class.java))

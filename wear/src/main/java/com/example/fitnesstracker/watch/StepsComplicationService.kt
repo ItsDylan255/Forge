@@ -14,6 +14,11 @@ import java.time.LocalDate
 /** Komplikation fürs Zifferblatt: heutige Schritte als Ring (oder als kurzer Text). */
 class StepsComplicationService : SuspendingComplicationDataSourceService() {
 
+    override fun onCreate() {
+        super.onCreate()
+        WatchLang.init(this)
+    }
+
     override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData? {
         val today = TodayStore(this).load()?.takeIf { it.dateEpochDay == LocalDate.now().toEpochDay() }
         return build(request.complicationType, today?.steps ?: 0, today?.stepGoal ?: 10_000)
@@ -23,7 +28,7 @@ class StepsComplicationService : SuspendingComplicationDataSourceService() {
 
     private fun build(type: ComplicationType, steps: Int, goal: Int): ComplicationData? {
         val text = PlainComplicationText.Builder(shortSteps(steps)).build()
-        val description = PlainComplicationText.Builder("$steps von $goal Schritten").build()
+        val description = PlainComplicationText.Builder(tr("$steps von $goal Schritten", "$steps of $goal steps")).build()
         val icon = MonochromaticImage.Builder(Icon.createWithResource(this, R.drawable.ic_stat_steps)).build()
 
         return when (type) {
@@ -47,5 +52,5 @@ class StepsComplicationService : SuspendingComplicationDataSourceService() {
 
     /** Kurz genug fürs Zifferblatt: 8432 -> "8,4k", 950 -> "950". */
     private fun shortSteps(steps: Int): String =
-        if (steps >= 1000) String.format(java.util.Locale.GERMANY, "%.1fk", steps / 1000.0) else steps.toString()
+        if (steps >= 1000) String.format(WatchLang.locale, "%.1fk", steps / 1000.0) else steps.toString()
 }

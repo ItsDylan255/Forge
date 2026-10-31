@@ -27,10 +27,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.fitnesstracker.domain.weight.WeightChartSlice
 import com.example.fitnesstracker.domain.weight.WeightMeasurement
+import com.example.fitnesstracker.i18n.L10n
+import com.example.fitnesstracker.i18n.tr
 import com.example.fitnesstracker.ui.theme.ForgeColors
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.hypot
@@ -71,7 +72,7 @@ fun WeightChart(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "Noch keine Daten für ein Diagramm.",
+                text = tr("Noch keine Daten für ein Diagramm.", "No data for a chart yet."),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -97,7 +98,7 @@ fun WeightChart(
         fontWeight = FontWeight.SemiBold
     )
 
-    val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.", Locale.GERMANY)
+    val dateFormatter = DateTimeFormatter.ofPattern(tr("dd.MM.", "dd/MM"), L10n.locale)
 
     Canvas(
         modifier = modifier
@@ -158,7 +159,7 @@ fun WeightChart(
                 pathEffect = dotted
             )
 
-            val label = String.format(Locale.GERMANY, "%.${decimals}f", value)
+            val label = String.format(L10n.locale, "%.${decimals}f", value)
             val measured = textMeasurer.measure(label, axisLabelStyle)
             drawText(
                 textLayoutResult = measured,
@@ -229,7 +230,7 @@ fun WeightChart(
         if (showPoints) measurements.forEachIndexed { index, measurement ->
             if (index % labelStep != 0 && index != count - 1) return@forEachIndexed
 
-            val valueText = String.format(Locale.GERMANY, "%.1f", measurement.weightKg)
+            val valueText = String.format(L10n.locale, "%.1f", measurement.weightKg)
             val measured = textMeasurer.measure(valueText, valueLabelStyle)
 
             val cx = xFor(index)

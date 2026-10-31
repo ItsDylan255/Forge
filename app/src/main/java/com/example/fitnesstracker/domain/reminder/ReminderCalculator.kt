@@ -1,8 +1,8 @@
 package com.example.fitnesstracker.domain.reminder
 
+import com.example.fitnesstracker.i18n.L10n
 import java.time.Duration
 import java.time.ZonedDateTime
-import java.util.Locale
 
 /** Rechenlogik für die tägliche Gewicht-Erinnerung. */
 object ReminderCalculator {
@@ -31,5 +31,5 @@ object ReminderCalculator {
     fun stepMinute(minute: Int, delta: Int): Int = Math.floorMod(minute + delta, 60)
 
     /** "08:05" */
-    fun format(hour: Int, minute: Int): String = String.format(Locale.GERMANY, "%02d:%02d", hour, minute)
+    fun format(hour: Int, minute: Int): String = String.format(L10n.locale, "%02d:%02d", hour, minute)
 }

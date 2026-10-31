@@ -24,6 +24,11 @@ import java.time.LocalDate
  */
 class ForgeTileService : TileService() {
 
+    override fun onCreate() {
+        super.onCreate()
+        WatchLang.init(this)
+    }
+
     override fun onTileRequest(requestParams: RequestBuilders.TileRequest): ListenableFuture<TileBuilders.Tile> {
         val tile = TileBuilders.Tile.Builder()
             .setResourcesVersion(RESOURCES_VERSION)
@@ -48,7 +53,7 @@ class ForgeTileService : TileService() {
         val details = today?.let {
             listOfNotNull(
                 it.weightKg?.let { kg -> WatchFormat.kg(kg) },
-                it.kcal?.let { kcal -> "$kcal kcal" }
+                it.kcal?.let { kcal -> "${WatchFormat.steps(kcal)} kcal" }
             ).joinToString(" · ")
         }.orEmpty()
 
@@ -75,7 +80,8 @@ class ForgeTileService : TileService() {
                     .build()
             )
             .addContent(
-                Text.Builder(this, today?.let { "von ${WatchFormat.steps(it.stepGoal)}" } ?: "Öffne Forge am Handy")
+                Text.Builder(this, today?.let { tr("von ${WatchFormat.steps(it.stepGoal)}", "of ${WatchFormat.steps(it.stepGoal)}") }
+                    ?: tr("Öffne Forge am Handy", "Open Forge on your phone"))
                     .setTypography(Typography.TYPOGRAPHY_CAPTION2)
                     .setColor(argb(GREY))
                     .build()
@@ -90,7 +96,7 @@ class ForgeTileService : TileService() {
                     .build()
             )
             .setPrimaryLabelTextContent(
-                Text.Builder(this, "Schritte")
+                Text.Builder(this, tr("Schritte", "Steps"))
                     .setTypography(Typography.TYPOGRAPHY_CAPTION1)
                     .setColor(argb(ORANGE))
                     .build()

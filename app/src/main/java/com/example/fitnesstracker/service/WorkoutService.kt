@@ -16,6 +16,7 @@ import com.example.fitnesstracker.MainActivity
 import com.example.fitnesstracker.R
 import com.example.fitnesstracker.data.local.WorkoutPreferences
 import com.example.fitnesstracker.domain.gym.WorkoutNotificationPlanner
+import com.example.fitnesstracker.i18n.tr
 import com.example.fitnesstracker.wear.WearBridge
 
 /**
@@ -59,8 +60,8 @@ class WorkoutService : Service() {
         super.onCreate()
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "Training", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "Laufendes Training mit Pausen-Countdown"
+            NotificationChannel(CHANNEL_ID, tr("Training", "Workout"), NotificationManager.IMPORTANCE_LOW).apply {
+                description = tr("Laufendes Training mit Pausen-Countdown", "Running workout with rest countdown")
                 setShowBadge(false)
             }
         )

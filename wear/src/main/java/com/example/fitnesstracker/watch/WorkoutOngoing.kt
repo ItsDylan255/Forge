@@ -33,8 +33,8 @@ object WorkoutOngoing {
         ) return
 
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "Training", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "Laufendes Training vom Handy"
+            NotificationChannel(CHANNEL_ID, tr("Training", "Workout"), NotificationManager.IMPORTANCE_LOW).apply {
+                description = tr("Laufendes Training vom Handy", "Running workout from your phone")
                 setShowBadge(false)
             }
         )
@@ -53,7 +53,7 @@ object WorkoutOngoing {
         // Die Zeitangaben laufen auf der Uhr selbst weiter (Basis: Zeit seit dem Einschalten)
         val status = if (state.restRunning(now)) {
             Status.Builder()
-                .addTemplate("Pause #rest#")
+                .addTemplate(tr("Pause #rest#", "Rest #rest#"))
                 .addPart("rest", Status.TimerPart(SystemClock.elapsedRealtime() + (state.restEndsAt - now)))
                 .build()
         } else {

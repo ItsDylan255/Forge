@@ -43,6 +43,7 @@ import com.example.fitnesstracker.domain.steps.StepDay
 import com.example.fitnesstracker.domain.steps.StepFormat
 import com.example.fitnesstracker.domain.steps.StepGoalProgress
 import com.example.fitnesstracker.domain.steps.StepSummary
+import com.example.fitnesstracker.i18n.tr
 import com.example.fitnesstracker.ui.weight.ForgeCard
 import com.example.fitnesstracker.ui.weight.SectionLabel
 
@@ -117,7 +118,7 @@ internal fun TodayCard(
                 verticalAlignment = Alignment.Bottom
             ) {
                 Column {
-                    SectionLabel("Heute")
+                    SectionLabel(tr("Heute", "Today"))
 
                     Spacer(modifier = Modifier.height(4.dp))
 
@@ -133,13 +134,13 @@ internal fun TodayCard(
 
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "von ${StepFormat.steps(progress.goal)}",
+                        text = tr("von ${StepFormat.steps(progress.goal)}", "of ${StepFormat.steps(progress.goal)}"),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
                     Text(
-                        text = "Ziel ändern",
+                        text = tr("Ziel ändern", "Change goal"),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier
@@ -165,8 +166,8 @@ internal fun TodayCard(
                     style = MaterialTheme.typography.titleMedium
                 )
                 Text(
-                    text = if (progress.reached) "Ziel erreicht"
-                    else "Noch ${StepFormat.steps(progress.remaining)}",
+                    text = if (progress.reached) tr("Ziel erreicht", "Goal reached")
+                    else tr("Noch ${StepFormat.steps(progress.remaining)}", "${StepFormat.steps(progress.remaining)} to go"),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -188,13 +189,13 @@ internal fun SummaryCard(week: StepSummary, month: StepSummary) {
                 .height(IntrinsicSize.Min)
         ) {
             SummaryCell(
-                label = "7 Tage",
+                label = tr("7 Tage", "7 days"),
                 value = StepFormat.steps(week.totalSteps.toInt()),
                 average = week.averagePerDay
             )
             SummaryDivider()
             SummaryCell(
-                label = "30 Tage",
+                label = tr("30 Tage", "30 days"),
                 value = StepFormat.steps(month.totalSteps.toInt()),
                 average = month.averagePerDay
             )
@@ -221,7 +222,7 @@ private fun RowScope.SummaryCell(label: String, value: String, average: Int?) {
             textAlign = TextAlign.Center
         )
         Text(
-            text = "Ø " + (average?.let { StepFormat.steps(it) } ?: "—") + " pro Tag",
+            text = "Ø " + (average?.let { StepFormat.steps(it) } ?: "—") + tr(" pro Tag", " per day"),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
@@ -274,7 +275,7 @@ internal fun StepChartSection(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Noch keine Schrittdaten im gewählten Zeitraum.",
+                    text = tr("Noch keine Schrittdaten im gewählten Zeitraum.", "No step data in the selected range yet."),
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -335,27 +336,27 @@ internal fun StepDayDialog(
         text = {
             Column {
                 Text(
-                    text = StepFormat.steps(day.steps) + " Schritte",
+                    text = StepFormat.steps(day.steps) + tr(" Schritte", " steps"),
                     style = MaterialTheme.typography.titleLarge
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Tagesziel: ${StepFormat.steps(goal)} (${StepFormat.percent(progress.percent)})",
+                    text = tr("Tagesziel: ${StepFormat.steps(goal)} (${StepFormat.percent(progress.percent)})", "Daily goal: ${StepFormat.steps(goal)} (${StepFormat.percent(progress.percent)})"),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Text(
-                    text = if (progress.reached) "Ziel erreicht"
-                    else "Es fehlten ${StepFormat.steps(progress.remaining)} Schritte",
+                    text = if (progress.reached) tr("Ziel erreicht", "Goal reached")
+                    else tr("Es fehlten ${StepFormat.steps(progress.remaining)} Schritte", "${StepFormat.steps(progress.remaining)} steps short"),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Schließen") } }
+        confirmButton = { TextButton(onClick = onDismiss) { Text(tr("Schließen", "Close")) } }
     )
 }
 
@@ -369,13 +370,13 @@ internal fun StepGoalDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Tagesziel") },
+        title = { Text(tr("Tagesziel", "Daily goal")) },
         text = {
             OutlinedTextField(
                 value = input,
                 onValueChange = onInputChange,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Schritte pro Tag") },
+                label = { Text(tr("Schritte pro Tag", "Steps per day")) },
                 placeholder = { Text("z. B. 10000") },
                 singleLine = true,
                 isError = error != null,
@@ -383,7 +384,7 @@ internal fun StepGoalDialog(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
             )
         },
-        confirmButton = { TextButton(onClick = onSave) { Text("Speichern") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }
+        confirmButton = { TextButton(onClick = onSave) { Text(tr("Speichern", "Save")) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Abbrechen", "Cancel")) } }
     )
 }

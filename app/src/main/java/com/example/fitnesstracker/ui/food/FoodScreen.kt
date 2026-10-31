@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.fitnesstracker.i18n.tr
 import com.example.fitnesstracker.ui.calories.CalorieViewModel
 import com.example.fitnesstracker.domain.food.FoodCalculator
 import com.example.fitnesstracker.domain.food.FoodFormat
@@ -125,14 +126,14 @@ fun FoodScreen(
             )
             AmountPage(
                 name = pageFood.name,
-                subtitle = "Pro 100 g: ${pageFood.per100gText()}",
+                subtitle = tr("Pro 100 g: ${pageFood.per100gText()}", "Per 100 g: ${pageFood.per100gText()}"),
                 dayLabel = dayLabel,
                 defaultGrams = 100.0,
                 quickAmounts = listOf(50.0, 100.0, 150.0, 200.0).map { FoodFormat.grams(it) to it },
                 portions = portionRows
                     .filter { it.foodItemId == pageFood.id }
                     .map { PortionData(it.name, it.grams) },
-                editLabel = "Lebensmittel bearbeiten",
+                editLabel = tr("Lebensmittel bearbeiten", "Edit food"),
                 macrosFor = { grams -> FoodCalculator.scale(per100g, grams) },
                 onAdd = { grams, note ->
                     viewModel.addEntry(pageFood, grams, selectedDay, note)
@@ -150,19 +151,19 @@ fun FoodScreen(
             val totalGrams = MealCalculator.totalGrams(pageMeal.ingredients)
             AmountPage(
                 name = pageMeal.name,
-                subtitle = "${pageMeal.ingredients.size} Zutaten \u00B7 ${FoodFormat.grams(totalGrams)} gesamt",
+                subtitle = tr("${pageMeal.ingredients.size} Zutaten \u00B7 ${FoodFormat.grams(totalGrams)} gesamt", "${pageMeal.ingredients.size} ingredients · ${FoodFormat.grams(totalGrams)} total"),
                 dayLabel = dayLabel,
                 defaultGrams = totalGrams,
                 quickAmounts = listOf(
                     "\u00BC" to totalGrams / 4,
                     "\u00BD" to totalGrams / 2,
-                    "Ganze Mahlzeit" to totalGrams
+                    tr("Ganze Mahlzeit", "Whole meal") to totalGrams
                 ),
                 // Eine Portion ist der Anteil laut "Ergibt (Portionen)"; bei 1 ist sie die ganze Mahlzeit
                 portions = listOf(
-                    PortionData("Portion", ServingCalculator.mealServingGrams(totalGrams, pageMeal.servings))
+                    PortionData(tr("Portion", "Serving"), ServingCalculator.mealServingGrams(totalGrams, pageMeal.servings))
                 ),
-                editLabel = "Mahlzeit bearbeiten",
+                editLabel = tr("Mahlzeit bearbeiten", "Edit meal"),
                 macrosFor = { grams -> MealCalculator.portion(pageMeal.ingredients, grams) },
                 onAdd = { grams, note ->
                     viewModel.addMealEntry(
@@ -235,7 +236,7 @@ fun FoodScreen(
                     .padding(top = 24.dp)
             ) {
                 Text(
-                    text = "Essen",
+                    text = tr("Essen", "Food"),
                     style = MaterialTheme.typography.headlineMedium
                 )
 
@@ -280,7 +281,7 @@ fun FoodScreen(
     // ---------- Dialoge: Mahlzeiten anlegen, bearbeiten, loeschen ----------
     if (creatingMeal) {
         MealEditDialog(
-            title = "Neue Mahlzeit",
+            title = tr("Neue Mahlzeit", "New meal"),
             initial = null,
             foods = foods,
             externalError = mealError,
@@ -304,7 +305,7 @@ fun FoodScreen(
     val editingMeal = meals.firstOrNull { it.id == editMealId }
     if (editingMeal != null) {
         MealEditDialog(
-            title = "Mahlzeit bearbeiten",
+            title = tr("Mahlzeit bearbeiten", "Edit meal"),
             initial = editingMeal,
             foods = foods,
             externalError = mealError,
@@ -329,10 +330,10 @@ fun FoodScreen(
     val mealToDelete = meals.firstOrNull { it.id == deleteMealId }
     if (mealToDelete != null) {
         ConfirmDialog(
-            title = "Mahlzeit l\u00F6schen?",
-            message = "\u201E${mealToDelete.name}\u201C wird aus deiner Liste gel\u00F6scht. " +
-                    "Bereits eingetragene Mahlzeiten bleiben unver\u00E4ndert erhalten.",
-            confirmLabel = "L\u00F6schen",
+            title = tr("Mahlzeit l\u00F6schen?", "Delete meal?"),
+            message = tr("\u201E${mealToDelete.name}\u201C wird aus deiner Liste gel\u00F6scht. ", "“${mealToDelete.name}” will be removed from your list. ") +
+                    tr("Bereits eingetragene Mahlzeiten bleiben unver\u00E4ndert erhalten.", "Meals you already logged stay unchanged."),
+            confirmLabel = tr("L\u00F6schen", "Delete"),
             onConfirm = {
                 mealViewModel.deleteMeal(mealToDelete.id)
                 deleteMealId = null
@@ -361,10 +362,10 @@ fun FoodScreen(
 
     if (entryToDelete != null) {
         ConfirmDialog(
-            title = "Eintrag l\u00F6schen?",
+            title = tr("Eintrag l\u00F6schen?", "Delete entry?"),
             message = "\u201E${entryToDelete.name}\u201C (${FoodFormat.grams(entryToDelete.grams)}) " +
-                    "wird aus diesem Tag entfernt.",
-            confirmLabel = "L\u00F6schen",
+                    tr("wird aus diesem Tag entfernt.", "will be removed from this day."),
+            confirmLabel = tr("L\u00F6schen", "Delete"),
             onConfirm = {
                 viewModel.deleteEntry(entryToDelete.id)
                 deleteEntryId = null
@@ -377,7 +378,7 @@ fun FoodScreen(
     // ---------- Dialoge: Lebensmittel anlegen, bearbeiten, loeschen ----------
     if (creatingFood) {
         FoodEditDialog(
-            title = "Neues Lebensmittel",
+            title = tr("Neues Lebensmittel", "New food"),
             initial = null,
             externalError = foodError,
             onSubmit = { name, kcal, protein, carbs, fat, portions ->
@@ -402,7 +403,7 @@ fun FoodScreen(
     val editingFood = foods.firstOrNull { it.id == editFoodId }
     if (editingFood != null) {
         FoodEditDialog(
-            title = "Lebensmittel bearbeiten",
+            title = tr("Lebensmittel bearbeiten", "Edit food"),
             initial = editingFood,
             initialPortions = portionRows
                 .filter { it.foodItemId == editingFood.id }
@@ -429,10 +430,10 @@ fun FoodScreen(
     val foodToDelete = foods.firstOrNull { it.id == deleteFoodId }
     if (foodToDelete != null) {
         ConfirmDialog(
-            title = "Lebensmittel l\u00F6schen?",
-            message = "\u201E${foodToDelete.name}\u201C wird aus deiner Liste gel\u00F6scht. " +
-                    "Bereits eingetragene Mahlzeiten bleiben unver\u00E4ndert erhalten.",
-            confirmLabel = "L\u00F6schen",
+            title = tr("Lebensmittel l\u00F6schen?", "Delete food?"),
+            message = tr("\u201E${foodToDelete.name}\u201C wird aus deiner Liste gel\u00F6scht. ", "“${foodToDelete.name}” will be removed from your list. ") +
+                    tr("Bereits eingetragene Mahlzeiten bleiben unver\u00E4ndert erhalten.", "Meals you already logged stay unchanged."),
+            confirmLabel = tr("L\u00F6schen", "Delete"),
             onConfirm = {
                 viewModel.deleteFood(foodToDelete.id)
                 deleteFoodId = null

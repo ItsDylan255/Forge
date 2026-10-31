@@ -1,6 +1,7 @@
 
 package com.example.fitnesstracker
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -44,6 +45,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.fitnesstracker.i18n.L10n
+import com.example.fitnesstracker.i18n.tr
 import com.example.fitnesstracker.ui.theme.FitnessTrackerTheme
 import com.example.fitnesstracker.ui.theme.ForgeColors
 import androidx.activity.SystemBarStyle
@@ -80,18 +83,24 @@ private data class AppDestination(
     val icon: ImageVector
 )
 
-private val destinations = listOf(
-    AppDestination("home", "Home", Icons.Filled.Home),
-    AppDestination("gym", "Gym", Icons.Filled.FitnessCenter),
-    AppDestination("food", "Essen", Icons.Filled.Restaurant),
-    AppDestination("steps", "Schritte", Icons.AutoMirrored.Filled.DirectionsWalk),
-    AppDestination("weight", "Gewicht", Icons.Filled.MonitorWeight)
-)
+private val destinations: List<AppDestination>
+    get() = listOf(
+        AppDestination("home", "Home", Icons.Filled.Home),
+        AppDestination("gym", "Gym", Icons.Filled.FitnessCenter),
+        AppDestination("food", tr("Essen", "Food"), Icons.Filled.Restaurant),
+        AppDestination("steps", tr("Schritte", "Steps"), Icons.AutoMirrored.Filled.DirectionsWalk),
+        AppDestination("weight", tr("Gewicht", "Weight"), Icons.Filled.MonitorWeight)
+    )
 
 class MainActivity : ComponentActivity() {
 
     // Ziel, das eine Benachrichtigung öffnen soll (zum Beispiel "weight")
     private var openRoute by mutableStateOf<String?>(null)
+
+    // Gewählte Sprache auch für Android-Dialoge (Datum, Uhrzeit) übernehmen
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(L10n.wrap(newBase))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -291,7 +300,7 @@ fun PlaceholderScreen(
             color = CardBackground
         ) {
             Text(
-                text = "Dieser Bereich wird als Nächstes eingerichtet.",
+                text = tr("Dieser Bereich wird als Nächstes eingerichtet.", "This section is coming next."),
                 color = AccentColor,
                 modifier = Modifier.padding(18.dp)
             )

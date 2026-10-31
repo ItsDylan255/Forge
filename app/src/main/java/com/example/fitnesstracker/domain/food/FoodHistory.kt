@@ -1,8 +1,8 @@
 package com.example.fitnesstracker.domain.food
 
+import com.example.fitnesstracker.i18n.L10n
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 /** Ein Tag im Verlauf mit seinen Summen. */
 data class HistoryDay(
@@ -13,7 +13,7 @@ data class HistoryDay(
 
 object FoodHistory {
 
-    private val monthFormatter = DateTimeFormatter.ofPattern("LLLL yyyy", Locale.GERMANY)
+    private val monthFormatter get() = DateTimeFormatter.ofPattern("LLLL yyyy", L10n.locale)
 
     /** Alle Tage mit mindestens einem Eintrag, der neueste zuerst. */
     fun days(entries: List<FoodLogData>): List<HistoryDay> =

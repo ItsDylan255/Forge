@@ -57,10 +57,11 @@ import com.example.fitnesstracker.domain.gym.SetSide
 import com.example.fitnesstracker.domain.gym.WorkoutFlow
 import com.example.fitnesstracker.domain.gym.WorkoutSlot
 import com.example.fitnesstracker.domain.gym.toData
+import com.example.fitnesstracker.i18n.L10n
+import com.example.fitnesstracker.i18n.tr
 import com.example.fitnesstracker.service.RestTimer
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 import com.example.fitnesstracker.domain.gym.GymFormat
 import com.example.fitnesstracker.domain.gym.GymInputParser
 import com.example.fitnesstracker.domain.gym.GymParseResult
@@ -173,7 +174,7 @@ fun WorkoutScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             if (pages.isEmpty()) {
-                EmptyHint("Füge eine Übung hinzu, um Sätze zu loggen.")
+                EmptyHint(tr("Füge eine Übung hinzu, um Sätze zu loggen.", "Add an exercise to log sets."))
             }
 
             // Eine Seite pro Übung oder Superset. Eingetragene Sätze liegen in der Datenbank
@@ -193,7 +194,7 @@ fun WorkoutScreen(
                     ) { Text("\u2039", style = MaterialTheme.typography.titleLarge) }
 
                     Text(
-                        text = "Übung ${pageIndex + 1} von ${pages.size}",
+                        text = tr("Übung ${pageIndex + 1} von ${pages.size}", "Exercise ${pageIndex + 1} of ${pages.size}"),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -234,7 +235,7 @@ fun WorkoutScreen(
                         val lastSet = allSets.filter { it.exerciseId == exerciseId }.maxByOrNull { it.id }
                         val name = nameById[exerciseId]
                             ?: setsOfExercise.lastOrNull()?.exerciseName
-                            ?: "Übung"
+                            ?: tr("Übung", "Exercise")
                         val planned = plan.firstOrNull { it.exerciseId == exerciseId }
                         val kind = kindById[exerciseId] ?: ExerciseKind.REPS
 
@@ -283,19 +284,19 @@ fun WorkoutScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             OutlinedButton(onClick = { showPicker = true }, modifier = Modifier.fillMaxWidth()) {
-                Text("+ Übung hinzufügen")
+                Text(tr("+ Übung hinzufügen", "+ Add exercise"))
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Button(onClick = { showFinish = true }, modifier = Modifier.fillMaxWidth()) {
-                Text("Workout beenden")
+                Text(tr("Workout beenden", "Finish workout"))
             }
 
             Spacer(modifier = Modifier.height(4.dp))
 
             TextButton(onClick = { showDiscard = true }, modifier = Modifier.fillMaxWidth()) {
-                Text("Workout verwerfen", color = MaterialTheme.colorScheme.error)
+                Text(tr("Workout verwerfen", "Discard workout"), color = MaterialTheme.colorScheme.error)
             }
 
             // Platz, damit die Pausen-Leiste unten nichts verdeckt
@@ -333,9 +334,9 @@ fun WorkoutScreen(
     if (showFinish) {
         if (sessionSets.isEmpty()) {
             ConfirmDialog(
-                title = "Noch keine Sätze",
-                message = "Ohne geloggte Sätze lässt sich das Workout nicht speichern. Verwerfen?",
-                confirmLabel = "Verwerfen",
+                title = tr("Noch keine Sätze", "No sets yet"),
+                message = tr("Ohne geloggte Sätze lässt sich das Workout nicht speichern. Verwerfen?", "A workout without logged sets can't be saved. Discard it?"),
+                confirmLabel = tr("Verwerfen", "Discard"),
                 onConfirm = {
                     showFinish = false
                     finishing = true
@@ -345,9 +346,9 @@ fun WorkoutScreen(
             )
         } else {
             ConfirmDialog(
-                title = "Workout beenden?",
-                message = "Die Dauer wird gespeichert und du siehst die Zusammenfassung.",
-                confirmLabel = "Beenden",
+                title = tr("Workout beenden?", "Finish workout?"),
+                message = tr("Die Dauer wird gespeichert und du siehst die Zusammenfassung.", "The duration is saved and you'll see the summary."),
+                confirmLabel = tr("Beenden", "Finish"),
                 destructive = false,
                 onConfirm = {
                     showFinish = false
@@ -361,9 +362,9 @@ fun WorkoutScreen(
 
     if (showDiscard) {
         ConfirmDialog(
-            title = "Workout verwerfen?",
-            message = "Alle Sätze dieses Workouts werden gelöscht.",
-            confirmLabel = "Verwerfen",
+            title = tr("Workout verwerfen?", "Discard workout?"),
+            message = tr("Alle Sätze dieses Workouts werden gelöscht.", "All sets of this workout will be deleted."),
+            confirmLabel = tr("Verwerfen", "Discard"),
             onConfirm = {
                 showDiscard = false
                 finishing = true
@@ -405,7 +406,7 @@ private fun RestTimerBar(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "PAUSE · ${timer.exerciseName}",
+                        text = tr("PAUSE · ${timer.exerciseName}", "REST · ${timer.exerciseName}"),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1
@@ -416,7 +417,7 @@ private fun RestTimerBar(
                     )
                 }
 
-                Button(onClick = onSkip) { Text("Überspringen") }
+                Button(onClick = onSkip) { Text(tr("Überspringen", "Skip")) }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -440,12 +441,12 @@ private fun RestTimerBar(
 }
 
 private fun dateText(epochDay: Long): String =
-    LocalDate.ofEpochDay(epochDay).format(DateTimeFormatter.ofPattern("dd.MM.yyyy", Locale.GERMANY))
+    LocalDate.ofEpochDay(epochDay).format(DateTimeFormatter.ofPattern(tr("dd.MM.yyyy", "dd/MM/yyyy"), L10n.locale))
 
 private fun sideLabel(side: SetSide): String = when (side) {
     SetSide.BOTH -> ""
-    SetSide.RIGHT -> " \u00B7 Rechts"
-    SetSide.LEFT -> " \u00B7 Links"
+    SetSide.RIGHT -> tr(" \u00B7 Rechts", " · Right")
+    SetSide.LEFT -> tr(" \u00B7 Links", " · Left")
 }
 
 /** Eine Zeile der Satzliste. [done] = schon geloggt, [active] = hier wird gerade eingetragen. */
@@ -536,13 +537,13 @@ private fun ExerciseBlock(
 
     val rangeText = planned?.let {
         if (kind == ExerciseKind.TIME) GymFormat.repsRange(kind, it.repsMin, it.repsMax)
-        else if (it.repsMin == it.repsMax) "${it.repsMin} Wdh."
-        else "${it.repsMin}\u2013${it.repsMax} Wdh."
+        else if (it.repsMin == it.repsMax) tr("${it.repsMin} Wdh.", "${it.repsMin} reps")
+        else tr("${it.repsMin}\u2013${it.repsMax} Wdh.", "${it.repsMin}–${it.repsMax} reps")
     }
     val weightLabel = when (kind) {
         ExerciseKind.REPS -> "kg"
-        ExerciseKind.ASSISTED -> "Unterstützung"
-        ExerciseKind.TIME -> "Zusatz (kg)"
+        ExerciseKind.ASSISTED -> tr("Unterstützung", "Assistance")
+        ExerciseKind.TIME -> tr("Zusatz (kg)", "Added (kg)")
     }
 
     // Geplante Übung: Zeilen aus dem Ablauf. Freie Übung: geloggte Sätze plus immer ein offener Satz.
@@ -553,7 +554,7 @@ private fun ExerciseBlock(
                 .sortedBy { it.id }
                 .getOrNull(slot.setNumber - 1)
             SetRow(
-                label = "Satz ${slot.setNumber}${sideLabel(slot.side)}",
+                label = tr("Satz ${slot.setNumber}${sideLabel(slot.side)}", "Set ${slot.setNumber}${sideLabel(slot.side)}"),
                 side = slot.side,
                 restSeconds = slot.restAfterSeconds,
                 done = done,
@@ -562,8 +563,8 @@ private fun ExerciseBlock(
         }
     } else {
         sets.mapIndexed { i, s ->
-            SetRow("Satz ${i + 1}", SetSide.BOTH, GymDefaults.REST_SECONDS, s, false)
-        } + SetRow("Satz ${sets.size + 1}", SetSide.BOTH, GymDefaults.REST_SECONDS, null, true)
+            SetRow(tr("Satz ${i + 1}", "Set ${i + 1}"), SetSide.BOTH, GymDefaults.REST_SECONDS, s, false)
+        } + SetRow(tr("Satz ${sets.size + 1}", "Set ${sets.size + 1}"), SetSide.BOTH, GymDefaults.REST_SECONDS, null, true)
     }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
 
@@ -574,8 +575,8 @@ private fun ExerciseBlock(
             if (planned != null) {
                 Text(
                     text = "${GymFormat.plan(kind, planned.plannedSets, planned.repsMin, planned.repsMax)}" +
-                            (if (planned.unilateral) " \u00B7 einseitig" else "") +
-                            " \u00B7 Pause ${GymFormat.restLabel(planned.restSeconds)}",
+                            (if (planned.unilateral) tr(" \u00B7 einseitig", " · unilateral") else "") +
+                            tr(" \u00B7 Pause ${GymFormat.restLabel(planned.restSeconds)}", " · rest ${GymFormat.restLabel(planned.restSeconds)}"),
                     style = MaterialTheme.typography.bodySmall,
                     color = muted
                 )
@@ -593,7 +594,7 @@ private fun ExerciseBlock(
             ) {
                 if (last != null) {
                     Text(
-                        text = "Letztes Training \u00B7 ${dateText(last.dateEpochDay)}",
+                        text = tr("Letztes Training \u00B7 ${dateText(last.dateEpochDay)}", "Last workout · ${dateText(last.dateEpochDay)}"),
                         style = MaterialTheme.typography.labelMedium,
                         color = muted
                     )
@@ -603,13 +604,13 @@ private fun ExerciseBlock(
                         val number = (counters[s.side] ?: 0) + 1
                         counters[s.side] = number
                         Text(
-                            text = "Satz $number${sideLabel(s.side)}: ${GymFormat.setText(s.kind, s.weightKg, s.reps)}",
+                            text = tr("Satz $number${sideLabel(s.side)}: ${GymFormat.setText(s.kind, s.weightKg, s.reps)}", "Set $number${sideLabel(s.side)}: ${GymFormat.setText(s.kind, s.weightKg, s.reps)}"),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
                 } else {
                     Text(
-                        text = "Noch kein Training mit dieser \u00DCbung.",
+                        text = tr("Noch kein Training mit dieser \u00DCbung.", "No workout with this exercise yet."),
                         style = MaterialTheme.typography.bodySmall,
                         color = muted
                     )
@@ -619,8 +620,8 @@ private fun ExerciseBlock(
             // ---------- Neuer Rekord (geschätztes 1RM) ----------
             record?.let { (now, before) ->
                 Text(
-                    text = "Neuer Rekord! Geschätztes 1RM ${GymFormat.kg(OneRepMax.roundToPlate(now))} " +
-                            "(vorher ${GymFormat.kg(OneRepMax.roundToPlate(before))})",
+                    text = tr("Neuer Rekord! Geschätztes 1RM ${GymFormat.kg(OneRepMax.roundToPlate(now))} ", "New record! Estimated 1RM ${GymFormat.kg(OneRepMax.roundToPlate(now))} ") +
+                            tr("(vorher ${GymFormat.kg(OneRepMax.roundToPlate(before))})", "(before ${GymFormat.kg(OneRepMax.roundToPlate(before))})"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(top = 8.dp)
@@ -692,7 +693,7 @@ private fun ExerciseBlock(
                                     error = null
                                 },
                                 modifier = Modifier.weight(1f),
-                                label = { Text(if (kind == ExerciseKind.TIME) "Sekunden" else "Wdh.") },
+                                label = { Text(if (kind == ExerciseKind.TIME) tr("Sekunden", "Seconds") else tr("Wdh.", "Reps")) },
                                 singleLine = true,
                                 enabled = !restActive,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
@@ -724,7 +725,7 @@ private fun ExerciseBlock(
                                     enabled = !restActive,
                                     modifier = Modifier.weight(1f)
                                 ) {
-                                    Text(if (stopwatchStart == 0L) "Stoppuhr starten" else "Stoppen")
+                                    Text(if (stopwatchStart == 0L) tr("Stoppuhr starten", "Start stopwatch") else tr("Stoppen", "Stop"))
                                 }
 
                                 if (stopwatchStart != 0L) {
@@ -752,7 +753,7 @@ private fun ExerciseBlock(
                             enabled = !restActive,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(if (restActive) "Pause l\u00E4uft \u2026" else "Satz speichern")
+                            Text(if (restActive) tr("Pause l\u00E4uft \u2026", "Resting …") else tr("Satz speichern", "Save set"))
                         }
                     }
 
@@ -781,7 +782,7 @@ private fun ExerciseBlock(
             if (planned != null && rows.isNotEmpty() && rows.all { it.done != null }) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Alle S\u00E4tze erledigt.",
+                    text = tr("Alle S\u00E4tze erledigt.", "All sets done."),
                     style = MaterialTheme.typography.bodySmall,
                     color = muted
                 )

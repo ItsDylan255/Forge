@@ -1,5 +1,6 @@
 package com.example.fitnesstracker.ui.steps
 
+import com.example.fitnesstracker.i18n.tr
 import com.example.fitnesstracker.ui.chart.chartPan
 import com.example.fitnesstracker.domain.chart.ChartWindow
 import android.Manifest
@@ -151,25 +152,25 @@ fun StepsScreen(
                 .padding(top = 16.dp)
         ) {
             Text(
-                text = "Schritte",
+                text = tr("Schritte", "Steps"),
                 style = MaterialTheme.typography.headlineMedium
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
             if (!viewModel.isSensorAvailable) {
-                StepsNoticeCard(message = "Dein Gerät unterstützt keinen Schrittzähler.")
+                StepsNoticeCard(message = tr("Dein Gerät unterstützt keinen Schrittzähler.", "Your device doesn't have a step counter."))
             } else {
                 if (!hasPermission) {
                     StepsNoticeCard(
-                        message = "Um deine Schritte zu zählen, braucht Forge die Berechtigung " +
-                                "„Körperliche Aktivität“.",
-                        primaryLabel = "Berechtigung erteilen",
+                        message = tr("Um deine Schritte zu zählen, braucht Forge die Berechtigung ", "To count your steps, Forge needs the ") +
+                                tr("„Körperliche Aktivität“.", "“Physical activity” permission."),
+                        primaryLabel = tr("Berechtigung erteilen", "Grant permission"),
                         onPrimary = {
                             permissionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
                         },
                         // Nach einer Ablehnung zeigt Android den Dialog oft nicht mehr: dann Einstellungen
-                        secondaryLabel = if (permissionDeniedOnce) "Einstellungen öffnen" else null,
+                        secondaryLabel = if (permissionDeniedOnce) tr("Einstellungen öffnen", "Open settings") else null,
                         onSecondary = {
                             context.startActivity(
                                 Intent(

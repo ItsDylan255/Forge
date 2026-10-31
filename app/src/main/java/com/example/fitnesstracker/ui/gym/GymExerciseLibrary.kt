@@ -22,6 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.fitnesstracker.domain.gym.ExerciseKind
 import com.example.fitnesstracker.domain.gym.GymFormat
 import com.example.fitnesstracker.domain.gym.MuscleGroups
+import com.example.fitnesstracker.i18n.tr
 import com.example.fitnesstracker.ui.weight.ForgeCard
 
 @Composable
@@ -36,14 +37,14 @@ fun ExerciseLibraryScreen(
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var deleteId by rememberSaveable { mutableStateOf<Long?>(null) }
 
-    val grouped = exercises.groupBy { it.muscleGroup ?: "Ohne Gruppe" }
-    val groupOrder = MuscleGroups.all + "Ohne Gruppe"
+    val grouped = exercises.groupBy { it.muscleGroup ?: tr("Ohne Gruppe", "No group") }
+    val groupOrder = MuscleGroups.all + tr("Ohne Gruppe", "No group")
     val orderedGroups = grouped.keys.sortedWith(
         compareBy({ groupOrder.indexOf(it).let { index -> if (index < 0) Int.MAX_VALUE else index } }, { it })
     )
 
     GymPage {
-        GymHeader(title = "Übungen", onBack = onBack)
+        GymHeader(title = tr("Übungen", "Exercises"), onBack = onBack)
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -53,15 +54,15 @@ fun ExerciseLibraryScreen(
                 creating = true
             },
             modifier = Modifier.fillMaxWidth()
-        ) { Text("+ Neue Übung") }
+        ) { Text(tr("+ Neue Übung", "+ New exercise")) }
 
         if (exercises.isEmpty()) {
             Spacer(modifier = Modifier.height(16.dp))
-            EmptyHint("Noch keine Übungen. Lege deine erste Übung an, danach kannst du sie in Routinen verwenden.")
+            EmptyHint(tr("Noch keine Übungen. Lege deine erste Übung an, danach kannst du sie in Routinen verwenden.", "No exercises yet. Create your first exercise, then you can use it in routines."))
         }
 
         orderedGroups.forEach { group ->
-            GroupLabel(group)
+            GroupLabel(MuscleGroups.label(group))
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 grouped.getValue(group).forEach { exercise ->
@@ -99,7 +100,7 @@ fun ExerciseLibraryScreen(
 
     if (creating) {
         ExerciseEditDialog(
-            title = "Neue Übung",
+            title = tr("Neue Übung", "New exercise"),
             initialName = "",
             initialMuscle = null,
             error = error,
@@ -122,7 +123,7 @@ fun ExerciseLibraryScreen(
     val editing = exercises.firstOrNull { it.id == editId }
     if (editing != null) {
         ExerciseEditDialog(
-            title = "Übung bearbeiten",
+            title = tr("Übung bearbeiten", "Edit exercise"),
             initialName = editing.name,
             initialMuscle = editing.muscleGroup,
             initialKind = ExerciseKind.fromCode(editing.kind),
@@ -147,10 +148,10 @@ fun ExerciseLibraryScreen(
     val toDelete = exercises.firstOrNull { it.id == deleteId }
     if (toDelete != null) {
         ConfirmDialog(
-            title = "Übung löschen?",
-            message = "„${toDelete.name}“ wird auch aus allen Routinen entfernt. " +
-                    "Bereits geloggte Sätze im Verlauf bleiben erhalten.",
-            confirmLabel = "Löschen",
+            title = tr("Übung löschen?", "Delete exercise?"),
+            message = tr("„${toDelete.name}“ wird auch aus allen Routinen entfernt. ", "“${toDelete.name}” will also be removed from all routines. ") +
+                    tr("Bereits geloggte Sätze im Verlauf bleiben erhalten.", "Sets already logged in your history are kept."),
+            confirmLabel = tr("Löschen", "Delete"),
             onConfirm = {
                 viewModel.deleteExercise(toDelete.id)
                 deleteId = null

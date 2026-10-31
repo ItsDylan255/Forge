@@ -84,6 +84,7 @@ class MainActivity : ComponentActivity() {
         events.forEach { event ->
             if (event.type != DataEvent.TYPE_CHANGED) return@forEach
             val map = DataMapItem.fromDataItem(event.dataItem).dataMap
+            WatchLang.update(this, map)
             when (event.dataItem.uri.path) {
                 WearProtocol.PATH_WORKOUT -> WatchListenerService.applyWorkout(this, WorkoutState.from(map))
                 WearProtocol.PATH_TODAY -> WatchListenerService.applyToday(this, TodayState.from(map))
@@ -98,6 +99,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WatchLang.init(this)
+        if (WatchStore.today.value == null) WatchStore.setToday(TodayStore(this).load())
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
@@ -119,12 +122,17 @@ class MainActivity : ComponentActivity() {
 
         // Den letzten Stand holen, falls die Uhr in der Zwischenzeit nichts empfangen hat
         client.getDataItems(Uri.parse("wear://*${WearProtocol.PATH_WORKOUT}")).addOnSuccessListener { items ->
-            val item = items.firstOrNull()
-            WatchListenerService.applyWorkout(this, item?.let { WorkoutState.from(DataMapItem.fromDataItem(it).dataMap) })
+            val map = items.firstOrNull()?.let { DataMapItem.fromDataItem(it).dataMap }
+            map?.let { WatchLang.update(this, it) }
+            WatchListenerService.applyWorkout(this, map?.let { WorkoutState.from(it) })
             items.release()
         }
         client.getDataItems(Uri.parse("wear://*${WearProtocol.PATH_TODAY}")).addOnSuccessListener { items ->
-            items.firstOrNull()?.let { WatchListenerService.applyToday(this, TodayState.from(DataMapItem.fromDataItem(it).dataMap)) }
+            items.firstOrNull()?.let { item ->
+                val map = DataMapItem.fromDataItem(item).dataMap
+                WatchLang.update(this, map)
+                WatchListenerService.applyToday(this, TodayState.from(map))
+            }
             items.release()
         }
     }
@@ -159,9 +167,8 @@ private fun ForgeWatchApp() {
 
 @Composable
 private fun IdleScreen() {
-    val context = LocalContext.current
-    val today = remember { TodayStore(context).load() }
-    val isToday = today?.dateEpochDay == LocalDate.now().toEpochDay()
+    val stored by WatchStore.today.collectAsStateWithLifecycle()
+    val today = stored?.takeIf { it.dateEpochDay == LocalDate.now().toEpochDay() }
 
     Column(
         modifier = Modifier
@@ -172,23 +179,38 @@ private fun IdleScreen() {
     ) {
         Text("Forge", style = MaterialTheme.typography.title2, color = MaterialTheme.colors.primary)
         Spacer(Modifier.height(6.dp))
-        if (today != null && isToday) {
-            Text("${WatchFormat.steps(today.steps)} / ${WatchFormat.steps(today.stepGoal)} Schritte",
-                style = MaterialTheme.typography.body2, textAlign = TextAlign.Center)
-            today.kcal?.let { kcal ->
-                val target = today.kcalTarget?.let { " / $it" }.orEmpty()
-                Text("$kcal$target kcal", style = MaterialTheme.typography.body2)
+        if (today != null) {
+            Text(
+                tr(
+                    "${WatchFormat.steps(today.steps)} / ${WatchFormat.steps(today.stepGoal)} Schritte",
+                    "${WatchFormat.steps(today.steps)} / ${WatchFormat.steps(today.stepGoal)} steps"
+                ),
+                style = MaterialTheme.typography.body2,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(6.dp))
+            KcalLine(eaten = today.kcal ?: 0, target = today.kcalTarget)
+            today.weightKg?.let {
+                Spacer(Modifier.height(6.dp))
+                Text(WatchFormat.kg(it), style = MaterialTheme.typography.body2)
             }
-            today.weightKg?.let { Text(WatchFormat.kg(it), style = MaterialTheme.typography.body2) }
-            Spacer(Modifier.height(8.dp))
         }
-        Text(
-            "Starte ein Training am Handy.",
-            style = MaterialTheme.typography.caption2,
-            color = MaterialTheme.colors.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
     }
+}
+
+/** Gegessene Kalorien und, falls ein Profil angelegt ist, das Tagesziel. */
+@Composable
+private fun KcalLine(eaten: Int, target: Int?) {
+    val eatenText = WatchFormat.steps(eaten)
+    Text(
+        if (target != null) "$eatenText / ${WatchFormat.steps(target)} kcal" else "$eatenText kcal",
+        style = MaterialTheme.typography.body2
+    )
+    Text(
+        if (target != null) tr("gegessen / erlaubt", "eaten / allowed") else tr("gegessen", "eaten"),
+        style = MaterialTheme.typography.caption3,
+        color = MaterialTheme.colors.onSurfaceVariant
+    )
 }
 
 @Composable
@@ -213,7 +235,7 @@ private fun WorkoutScreen(state: WorkoutState, now: Long) {
             if (state.exerciseName == null) {
                 item {
                     Text(
-                        "Füge am Handy eine Übung hinzu.",
+                        tr("Füge am Handy eine Übung hinzu.", "Add an exercise on your phone."),
                         style = MaterialTheme.typography.body2,
                         textAlign = TextAlign.Center
                     )
@@ -290,11 +312,11 @@ private fun RestScreen(state: WorkoutState, now: Long) {
             strokeWidth = 6.dp
         )
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("PAUSE", style = MaterialTheme.typography.caption3, color = MaterialTheme.colors.onSurfaceVariant)
+            Text(tr("PAUSE", "REST"), style = MaterialTheme.typography.caption3, color = MaterialTheme.colors.onSurfaceVariant)
             Text(WatchFormat.countdown(remaining), fontSize = 40.sp, fontWeight = FontWeight.Bold)
             state.exerciseName?.let { next ->
                 Text(
-                    "Weiter: $next",
+                    tr("Weiter: $next", "Next: $next"),
                     style = MaterialTheme.typography.caption2,
                     color = MaterialTheme.colors.onSurfaceVariant,
                     maxLines = 1,
@@ -316,7 +338,7 @@ private fun RestScreen(state: WorkoutState, now: Long) {
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_skip),
-                        contentDescription = "Überspringen"
+                        contentDescription = tr("Überspringen", "Skip")
                     )
                 }
             }

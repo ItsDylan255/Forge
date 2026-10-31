@@ -1,7 +1,11 @@
 package com.example.fitnesstracker.watch
 
 import android.content.Context
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.google.android.gms.wearable.DataMap
+import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,7 +42,7 @@ data class WorkoutState(
             if (!map.getBoolean("active", false)) return null
             fun text(key: String) = map.getString(key)?.takeIf { it.isNotEmpty() }
             return WorkoutState(
-                routineName = map.getString("routine") ?: "Training",
+                routineName = map.getString("routine") ?: tr("Training", "Workout"),
                 startedAt = map.getLong("startedAt"),
                 exerciseName = text("exercise"),
                 setText = text("set"),
@@ -81,10 +85,49 @@ object WatchStore {
     private val _workout = MutableStateFlow<WorkoutState?>(null)
     val workout: StateFlow<WorkoutState?> = _workout.asStateFlow()
 
+    private val _today = MutableStateFlow<TodayState?>(null)
+    val today: StateFlow<TodayState?> = _today.asStateFlow()
+
     fun setWorkout(state: WorkoutState?) {
         _workout.value = state
     }
+
+    fun setToday(state: TodayState?) {
+        _today.value = state
+    }
 }
+
+/**
+ * Sprache der Texte auf der Uhr. Folgt der Einstellung am Handy (die bei jedem Stand mitkommt),
+ * bis dahin der Sprache der Uhr.
+ */
+object WatchLang {
+
+    var english by mutableStateOf(Locale.getDefault().language != "de")
+        private set
+
+    /** Zahlenformat passend zur Sprache: 80,4 kg bzw. 80.4 kg. */
+    val locale: Locale get() = if (english) Locale.UK else Locale.GERMANY
+
+    fun init(context: Context) {
+        prefs(context).getString(KEY, null)?.let { english = it == "en" }
+    }
+
+    /** Übernimmt die Sprache aus einem Stand vom Handy. */
+    fun update(context: Context, map: DataMap) {
+        val code = map.getString(KEY)?.takeIf { it.isNotEmpty() } ?: return
+        prefs(context).edit().putString(KEY, code).apply()
+        english = code == "en"
+    }
+
+    private const val KEY = "lang"
+
+    private fun prefs(context: Context) =
+        context.applicationContext.getSharedPreferences("language", Context.MODE_PRIVATE)
+}
+
+/** Text in der Sprache der Uhr: `tr("Schritte", "Steps")`. */
+fun tr(de: String, en: String): String = if (WatchLang.english) en else de
 
 /**
  * Speichert die Tageswerte auf der Uhr, damit Kachel und Komplikation sie auch zeigen,

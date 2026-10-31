@@ -14,6 +14,7 @@ import com.example.fitnesstracker.R
 import com.example.fitnesstracker.data.local.DatabaseProvider
 import com.example.fitnesstracker.data.local.ReminderPreferences
 import com.example.fitnesstracker.domain.reminder.ReminderCalculator
+import com.example.fitnesstracker.i18n.tr
 import java.time.LocalDate
 
 /** Zeigt die Erinnerung "Gewicht eintragen", falls für heute noch kein Eintrag existiert. */
@@ -46,8 +47,8 @@ class WeightReminderWorker(
 
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "Erinnerungen", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                description = "Tägliche Erinnerung, das Gewicht einzutragen"
+            NotificationChannel(CHANNEL_ID, tr("Erinnerungen", "Reminders"), NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = tr("Tägliche Erinnerung, das Gewicht einzutragen", "Daily reminder to log your weight")
             }
         )
 
@@ -63,8 +64,8 @@ class WeightReminderWorker(
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_workout)
-            .setContentTitle("Gewicht eintragen")
-            .setContentText("Du hast heute noch kein Gewicht eingetragen.")
+            .setContentTitle(tr("Gewicht eintragen", "Log weight"))
+            .setContentText(tr("Du hast heute noch kein Gewicht eingetragen.", "You haven't logged your weight today."))
             .setContentIntent(open)
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)

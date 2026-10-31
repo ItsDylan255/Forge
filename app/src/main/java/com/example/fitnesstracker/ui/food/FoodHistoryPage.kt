@@ -20,6 +20,7 @@ import com.example.fitnesstracker.domain.food.FoodCalculator
 import com.example.fitnesstracker.domain.food.FoodFormat
 import com.example.fitnesstracker.domain.food.FoodHistory
 import com.example.fitnesstracker.domain.food.FoodLogData
+import com.example.fitnesstracker.i18n.tr
 import com.example.fitnesstracker.ui.gym.EmptyHint
 import com.example.fitnesstracker.ui.gym.GroupLabel
 import com.example.fitnesstracker.ui.gym.GymHeader
@@ -40,15 +41,15 @@ internal fun FoodHistoryPage(
     val days = FoodHistory.days(entries)
 
     GymPage {
-        GymHeader(title = "Verlauf", onBack = onBack)
+        GymHeader(title = tr("Verlauf", "History"), onBack = onBack)
 
         OutlinedButton(onClick = onOpenToday, modifier = Modifier.fillMaxWidth()) {
-            Text("Heute öffnen")
+            Text(tr("Heute öffnen", "Open today"))
         }
 
         if (days.isEmpty()) {
             Spacer(modifier = Modifier.height(12.dp))
-            EmptyHint("Noch nichts eingetragen. Sobald du etwas einträgst, erscheinen hier die Tage.")
+            EmptyHint(tr("Noch nichts eingetragen. Sobald du etwas einträgst, erscheinen hier die Tage.", "Nothing logged yet. Once you log something, your days show up here."))
         } else {
             days.groupBy { FoodHistory.monthLabel(it.epochDay) }.forEach { (month, monthDays) ->
                 GroupLabel(month)
@@ -72,7 +73,7 @@ internal fun FoodHistoryPage(
                                         style = MaterialTheme.typography.titleMedium
                                     )
                                     Text(
-                                        text = "${day.entryCount} Einträge \u00B7 " +
+                                        text = tr("${day.entryCount} Einträge \u00B7 ", "${day.entryCount} entries · ") +
                                                 "P ${FoodFormat.macro(day.totals.protein)} \u00B7 " +
                                                 "K ${FoodFormat.macro(day.totals.carbs)} \u00B7 " +
                                                 "F ${FoodFormat.macro(day.totals.fat)}",
@@ -112,7 +113,7 @@ internal fun FoodDayOverviewPage(
 
         ForgeCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(20.dp)) {
-                SectionLabel("Kalorien gesamt")
+                SectionLabel(tr("Kalorien gesamt", "Total calories"))
 
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -126,7 +127,7 @@ internal fun FoodDayOverviewPage(
                 )
 
                 Text(
-                    text = "${dayEntries.size} Einträge",
+                    text = tr("${dayEntries.size} Einträge", "${dayEntries.size} entries"),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -137,14 +138,14 @@ internal fun FoodDayOverviewPage(
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             StatBox("Protein", FoodFormat.macro(totals.protein), Modifier.weight(1f))
-            StatBox("Kohlenhydrate", FoodFormat.macro(totals.carbs), Modifier.weight(1f))
-            StatBox("Fett", FoodFormat.macro(totals.fat), Modifier.weight(1f))
+            StatBox(tr("Kohlenhydrate", "Carbs"), FoodFormat.macro(totals.carbs), Modifier.weight(1f))
+            StatBox(tr("Fett", "Fat"), FoodFormat.macro(totals.fat), Modifier.weight(1f))
         }
 
-        GroupLabel("Gegessen")
+        GroupLabel(tr("Gegessen", "Eaten"))
 
         if (dayEntries.isEmpty()) {
-            EmptyHint("An diesem Tag wurde nichts eingetragen.")
+            EmptyHint(tr("An diesem Tag wurde nichts eingetragen.", "Nothing was logged on this day."))
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 dayEntries.forEach { entry ->
@@ -182,7 +183,7 @@ internal fun FoodDayOverviewPage(
         Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedButton(onClick = onOpenInDay, modifier = Modifier.fillMaxWidth()) {
-            Text("Im Tag öffnen")
+            Text(tr("Im Tag öffnen", "Open in day"))
         }
     }
 }

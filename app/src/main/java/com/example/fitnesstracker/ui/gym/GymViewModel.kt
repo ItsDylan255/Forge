@@ -17,6 +17,7 @@ import com.example.fitnesstracker.domain.gym.PlanRef
 import com.example.fitnesstracker.domain.gym.RoutinePlans
 import com.example.fitnesstracker.domain.gym.RoutineRef
 import com.example.fitnesstracker.domain.gym.SetSide
+import com.example.fitnesstracker.i18n.tr
 import com.example.fitnesstracker.service.LiveSync
 import com.example.fitnesstracker.service.RestTimer
 import com.example.fitnesstracker.service.RestTimerStore
@@ -145,7 +146,7 @@ class GymViewModel(application: Application) : AndroidViewModel(application) {
 
             val duplicate = dao.findExerciseByName(cleanName)
             if (duplicate != null && duplicate.id != id) {
-                onDone("Eine Übung mit diesem Namen gibt es schon.", null)
+                onDone(tr("Eine Übung mit diesem Namen gibt es schon.", "An exercise with this name already exists."), null)
                 return@launch
             }
 
@@ -297,7 +298,7 @@ class GymViewModel(application: Application) : AndroidViewModel(application) {
 
             val duplicate = dao.findPlanByName(cleanName)
             if (duplicate != null && duplicate.id != planId) {
-                onDone("Einen Plan mit diesem Namen gibt es schon.", null)
+                onDone(tr("Einen Plan mit diesem Namen gibt es schon.", "A plan with this name already exists."), null)
                 return@launch
             }
 
@@ -334,7 +335,7 @@ class GymViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
             if (dao.findPlanByName(cleanName) != null) {
-                onDone("Einen Plan mit diesem Namen gibt es schon.")
+                onDone(tr("Einen Plan mit diesem Namen gibt es schon.", "A plan with this name already exists."))
                 return@launch
             }
 
@@ -364,7 +365,7 @@ class GymViewModel(application: Application) : AndroidViewModel(application) {
                 dao.insertSession(
                     GymSession(
                         routineId = routine?.id,
-                        routineName = routine?.name ?: "Freies Workout",
+                        routineName = routine?.name ?: tr("Freies Workout", "Free workout"),
                         planId = plan?.id,
                         planName = plan?.name,
                         dateEpochDay = LocalDate.now().toEpochDay(),

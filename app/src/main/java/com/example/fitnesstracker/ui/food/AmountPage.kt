@@ -38,6 +38,7 @@ import com.example.fitnesstracker.domain.food.Macros
 import com.example.fitnesstracker.domain.food.PortionData
 import com.example.fitnesstracker.domain.food.ServingCalculator
 import com.example.fitnesstracker.domain.food.ServingInputParser
+import com.example.fitnesstracker.i18n.tr
 import com.example.fitnesstracker.ui.gym.GymHeader
 import com.example.fitnesstracker.ui.gym.GymPage
 import com.example.fitnesstracker.ui.gym.StatBox
@@ -102,7 +103,7 @@ internal fun AmountPage(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
-            text = "Eintrag für: $dayLabel",
+            text = tr("Eintrag für: $dayLabel", "Entry for: $dayLabel"),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -124,7 +125,7 @@ internal fun AmountPage(
                         effectiveGrams == null -> "\u2014"
                         portion != null && count != null ->
                             "${ServingCalculator.entryNote(count, portion.name)} \u00B7 ${FoodFormat.grams(effectiveGrams)}"
-                        else -> "für ${FoodFormat.grams(effectiveGrams)}"
+                        else -> tr("für ${FoodFormat.grams(effectiveGrams)}", "for ${FoodFormat.grams(effectiveGrams)}")
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -136,8 +137,8 @@ internal fun AmountPage(
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             StatBox("Protein", preview?.let { FoodFormat.macro(it.protein) } ?: "\u2014", Modifier.weight(1f))
-            StatBox("Kohlenhydrate", preview?.let { FoodFormat.macro(it.carbs) } ?: "\u2014", Modifier.weight(1f))
-            StatBox("Fett", preview?.let { FoodFormat.macro(it.fat) } ?: "\u2014", Modifier.weight(1f))
+            StatBox(tr("Kohlenhydrate", "Carbs"), preview?.let { FoodFormat.macro(it.carbs) } ?: "\u2014", Modifier.weight(1f))
+            StatBox(tr("Fett", "Fat"), preview?.let { FoodFormat.macro(it.fat) } ?: "\u2014", Modifier.weight(1f))
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -145,7 +146,7 @@ internal fun AmountPage(
         // ---------- Einheit ----------
         if (portions.isNotEmpty()) {
             Text(
-                text = "Einheit",
+                text = tr("Einheit", "Unit"),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -156,7 +157,7 @@ internal fun AmountPage(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                UnitChip("Gramm", selected = portion == null) { selectUnit(GRAM_UNIT) }
+                UnitChip(tr("Gramm", "Grams"), selected = portion == null) { selectUnit(GRAM_UNIT) }
                 portions.forEachIndexed { index, item ->
                     UnitChip(
                         label = "${item.name} \u00B7 ${FoodFormat.grams(item.grams)}",
@@ -188,7 +189,7 @@ internal fun AmountPage(
                         error = null
                     },
                     modifier = Modifier.weight(1f),
-                    label = { Text("Anzahl (${portion.name})") },
+                    label = { Text(tr("Anzahl (${portion.name})", "Amount (${portion.name})")) },
                     singleLine = true,
                     isError = error != null,
                     supportingText = error?.let { message -> { Text(message) } },
@@ -210,7 +211,7 @@ internal fun AmountPage(
                     error = null
                 },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Menge in Gramm") },
+                label = { Text(tr("Menge in Gramm", "Amount in grams")) },
                 singleLine = true,
                 isError = error != null,
                 supportingText = error?.let { message -> { Text(message) } },
@@ -241,7 +242,7 @@ internal fun AmountPage(
                         is FoodParseResult.Valid -> {
                             val grams = ServingCalculator.gramsFor(portion.grams, result.value)
                             if (grams > FoodInputParser.MAX_GRAMS) {
-                                error = "Die Menge darf höchstens 10.000 g betragen."
+                                error = tr("Die Menge darf höchstens 10.000 g betragen.", "The amount can be at most 10,000 g.")
                             } else {
                                 onAdd(grams, ServingCalculator.entryNote(result.value, portion.name))
                             }
@@ -256,7 +257,7 @@ internal fun AmountPage(
                 }
             },
             modifier = Modifier.fillMaxWidth()
-        ) { Text("Hinzufügen") }
+        ) { Text(tr("Hinzufügen", "Add")) }
 
         Spacer(modifier = Modifier.height(4.dp))
 

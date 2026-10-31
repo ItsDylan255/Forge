@@ -39,6 +39,7 @@ import com.example.fitnesstracker.domain.food.MealCalculator
 import com.example.fitnesstracker.domain.food.MealIngredientData
 import com.example.fitnesstracker.domain.food.MealInputParser
 import com.example.fitnesstracker.domain.food.ServingInputParser
+import com.example.fitnesstracker.i18n.tr
 
 /** Eine Zutat während der Bearbeitung. Die Gramm bleiben als Text, bis gespeichert wird. */
 private data class IngredientDraft(
@@ -59,14 +60,14 @@ internal fun FoodPickerDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Zutat w\u00E4hlen") },
+        title = { Text(tr("Zutat w\u00E4hlen", "Choose ingredient")) },
         text = {
             Column {
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Suchen") },
+                    label = { Text(tr("Suchen", "Search")) },
                     singleLine = true
                 )
 
@@ -74,8 +75,8 @@ internal fun FoodPickerDialog(
 
                 if (filtered.isEmpty()) {
                     Text(
-                        text = if (foods.isEmpty()) "Lege zuerst unter Lebensmittel Zutaten an."
-                        else "Nichts gefunden.",
+                        text = if (foods.isEmpty()) tr("Lege zuerst unter Lebensmittel Zutaten an.", "Add ingredients under Foods first.")
+                        else tr("Nichts gefunden.", "Nothing found."),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = 12.dp)
@@ -101,7 +102,7 @@ internal fun FoodPickerDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Schlie\u00DFen") } }
+        confirmButton = { TextButton(onClick = onDismiss) { Text(tr("Schlie\u00DFen", "Close")) } }
     )
 }
 
@@ -185,8 +186,8 @@ internal fun MealEditDialog(
                     value = servingsInput,
                     onValueChange = { servingsInput = it; localError = null },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Ergibt (Portionen)") },
-                    supportingText = { Text("Zum Beispiel 4, wenn der Topf für 4 Portionen reicht.") },
+                    label = { Text(tr("Ergibt (Portionen)", "Makes (servings)")) },
+                    supportingText = { Text(tr("Zum Beispiel 4, wenn der Topf für 4 Portionen reicht.", "For example 4 if the pot makes 4 servings.")) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
@@ -194,14 +195,14 @@ internal fun MealEditDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "Zutaten",
+                    text = tr("Zutaten", "Ingredients"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 if (drafts.isEmpty()) {
                     Text(
-                        text = "Noch keine Zutat. Tippe auf \u201E+ Zutat\u201C.",
+                        text = tr("Noch keine Zutat. Tippe auf \u201E+ Zutat\u201C.", "No ingredients yet. Tap “+ Ingredient”."),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = 8.dp)
@@ -248,12 +249,12 @@ internal fun MealEditDialog(
                     }
                 }
 
-                TextButton(onClick = { picking = true }) { Text("+ Zutat") }
+                TextButton(onClick = { picking = true }) { Text(tr("+ Zutat", "+ Ingredient")) }
 
                 if (valid.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Gesamt: ${FoodFormat.grams(totalGrams)} \u00B7 ${FoodFormat.kcal(totals.kcal)}",
+                        text = tr("Gesamt: ${FoodFormat.grams(totalGrams)} \u00B7 ${FoodFormat.kcal(totals.kcal)}", "Total: ${FoodFormat.grams(totalGrams)} · ${FoodFormat.kcal(totals.kcal)}"),
                         style = MaterialTheme.typography.titleMedium
                     )
                     Text(
@@ -277,13 +278,13 @@ internal fun MealEditDialog(
                 if (onDelete != null) {
                     Spacer(modifier = Modifier.height(8.dp))
                     TextButton(onClick = onDelete) {
-                        Text("Mahlzeit l\u00F6schen", color = MaterialTheme.colorScheme.error)
+                        Text(tr("Mahlzeit l\u00F6schen", "Delete meal"), color = MaterialTheme.colorScheme.error)
                     }
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { submit() }) { Text("Speichern") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }
+        confirmButton = { TextButton(onClick = { submit() }) { Text(tr("Speichern", "Save")) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Abbrechen", "Cancel")) } }
     )
 
     if (picking) {

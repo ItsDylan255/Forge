@@ -37,6 +37,7 @@ import com.example.fitnesstracker.domain.steps.StepFormat
 import com.example.fitnesstracker.domain.weight.GoalDirection
 import com.example.fitnesstracker.domain.weight.WeightFormat
 import com.example.fitnesstracker.domain.weight.WeightGoalCalculator
+import com.example.fitnesstracker.i18n.tr
 import com.example.fitnesstracker.ui.calories.CalorieViewModel
 import com.example.fitnesstracker.ui.food.FoodViewModel
 import com.example.fitnesstracker.ui.steps.StepsViewModel
@@ -86,20 +87,20 @@ fun HomeScreen(
 
     val weightValue = latest?.let { WeightFormat.weight(it.weightKg) } ?: "-- kg"
     val weightDetail = when {
-        latest == null -> "Noch kein Gewicht eingetragen"
+        latest == null -> tr("Noch kein Gewicht eingetragen", "No weight logged yet")
         goalProgress != null -> {
             val base = when (goalProgress.direction) {
-                GoalDirection.REACHED -> "Ziel erreicht"
-                GoalDirection.LOSE -> "Noch ${WeightFormat.weight(goalProgress.remainingKg)} abnehmen"
-                GoalDirection.GAIN -> "Noch ${WeightFormat.weight(goalProgress.remainingKg)} zunehmen"
+                GoalDirection.REACHED -> tr("Ziel erreicht", "Goal reached")
+                GoalDirection.LOSE -> tr("Noch ${WeightFormat.weight(goalProgress.remainingKg)} abnehmen", "${WeightFormat.weight(goalProgress.remainingKg)} left to lose")
+                GoalDirection.GAIN -> tr("Noch ${WeightFormat.weight(goalProgress.remainingKg)} zunehmen", "${WeightFormat.weight(goalProgress.remainingKg)} left to gain")
             }
             val percent = goalProgress.progressFraction?.let { " \u00B7 ${(it * 100).toInt()} %" } ?: ""
             base + percent
         }
-        previous != null -> "\u00C4nderung: ${WeightFormat.delta(latest.weightKg - previous.weightKg)}"
-        else -> "Noch kein Ziel gesetzt"
+        previous != null -> tr("\u00C4nderung: ${WeightFormat.delta(latest.weightKg - previous.weightKg)}", "Change: ${WeightFormat.delta(latest.weightKg - previous.weightKg)}")
+        else -> tr("Noch kein Ziel gesetzt", "No goal set yet")
     }
-    val weightRight = weightGoal?.let { "Ziel: ${WeightFormat.weight(it.targetWeightKg)}" } ?: "Ziel: -- kg"
+    val weightRight = weightGoal?.let { tr("Ziel: ${WeightFormat.weight(it.targetWeightKg)}", "Goal: ${WeightFormat.weight(it.targetWeightKg)}") } ?: tr("Ziel: -- kg", "Goal: -- kg")
 
     // ---------- Kalorien ----------
     val kcalGoal = calorieTarget?.targetKcal
@@ -118,41 +119,41 @@ fun HomeScreen(
             verticalAlignment = Alignment.Top
         ) {
             Column {
-                Text(text = "\u00DCbersicht", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                Text(text = tr("\u00DCbersicht", "Overview"), color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold)
             }
 
             IconButton(onClick = onOpenSettings) {
                 Icon(
                     imageVector = Icons.Filled.Settings,
-                    contentDescription = "Einstellungen",
+                    contentDescription = tr("Einstellungen", "Settings"),
                     tint = SecondaryText
                 )
             }
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(text = "HEUTE", color = SecondaryText, fontSize = 12.sp, letterSpacing = 1.5.sp)
+            Text(text = tr("HEUTE", "TODAY"), color = SecondaryText, fontSize = 12.sp, letterSpacing = 1.5.sp)
 
             TrackerCard(
-                title = "Schritte",
+                title = tr("Schritte", "Steps"),
                 value = StepFormat.steps(stepProgress.steps),
-                detail = "von ${StepFormat.steps(stepProgress.goal)} Schritten",
+                detail = tr("von ${StepFormat.steps(stepProgress.goal)} Schritten", "of ${StepFormat.steps(stepProgress.goal)} steps"),
                 progress = StepFormat.percent(stepProgress.percent),
                 onClick = { onNavigate("steps") }
             )
 
             TrackerCard(
-                title = "Kalorien",
+                title = tr("Kalorien", "Calories"),
                 value = FoodFormat.kcal(kcalToday),
-                detail = if (kcalGoal != null) "von ${FoodFormat.kcal(kcalGoal.toDouble())}"
-                else "Noch kein Kalorienziel",
+                detail = if (kcalGoal != null) tr("von ${FoodFormat.kcal(kcalGoal.toDouble())}", "of ${FoodFormat.kcal(kcalGoal.toDouble())}")
+                else tr("Noch kein Kalorienziel", "No calorie goal yet"),
                 progress = FoodCalculator.goalPercent(kcalToday, kcalGoal)
                     ?.let { FoodFormat.percent(it) } ?: "",
                 onClick = { onNavigate("food") }
             )
 
             TrackerCard(
-                title = "K\u00F6rpergewicht",
+                title = tr("K\u00F6rpergewicht", "Body weight"),
                 value = weightValue,
                 detail = weightDetail,
                 progress = weightRight,

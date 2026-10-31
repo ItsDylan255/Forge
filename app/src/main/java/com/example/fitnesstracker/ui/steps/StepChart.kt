@@ -22,11 +22,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.fitnesstracker.domain.steps.StepBar
 import com.example.fitnesstracker.domain.steps.StepFormat
+import com.example.fitnesstracker.i18n.L10n
+import com.example.fitnesstracker.i18n.tr
 import com.example.fitnesstracker.ui.theme.ForgeColors
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle as JavaTextStyle
-import java.util.Locale
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.log10
@@ -58,7 +59,7 @@ fun StepChart(
 
     val axisStyle = TextStyle(color = secondary, fontSize = 11.sp, fontWeight = FontWeight.Medium)
     val valueStyle = TextStyle(color = onSurface, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
-    val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.", Locale.GERMANY)
+    val dateFormatter = DateTimeFormatter.ofPattern(tr("dd.MM.", "dd/MM"), L10n.locale)
 
     Canvas(
         modifier = modifier
@@ -187,7 +188,7 @@ fun StepChart(
 
             val date = LocalDate.ofEpochDay(bar.dateEpochDay)
             val label = if (count <= 7) {
-                date.dayOfWeek.getDisplayName(JavaTextStyle.SHORT, Locale.GERMANY)
+                date.dayOfWeek.getDisplayName(JavaTextStyle.SHORT, L10n.locale)
             } else {
                 date.format(dateFormatter)
             }

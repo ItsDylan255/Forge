@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.wear.remote.interactions.RemoteActivityHelper
 import com.example.fitnesstracker.domain.wear.WatchToday
 import com.example.fitnesstracker.domain.wear.WatchWorkoutState
+import com.example.fitnesstracker.i18n.L10n
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
 import java.util.concurrent.Executors
@@ -41,6 +42,7 @@ object WearBridge {
     suspend fun sendWorkout(context: Context, state: WatchWorkoutState?) {
         put(context, PATH_WORKOUT) {
             putBoolean("active", state != null)
+            putString("lang", L10n.languageCode)
             if (state == null) return@put
             putLong("sessionId", state.sessionId)
             putString("routine", state.routineName)
@@ -61,6 +63,7 @@ object WearBridge {
     suspend fun sendToday(context: Context, today: WatchToday) {
         put(context, PATH_TODAY) {
             putLong("date", today.dateEpochDay)
+            putString("lang", L10n.languageCode)
             putInt("steps", today.steps)
             putInt("stepGoal", today.stepGoal)
             putDouble("weight", today.weightKg ?: -1.0)

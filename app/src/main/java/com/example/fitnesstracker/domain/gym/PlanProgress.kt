@@ -1,5 +1,7 @@
 package com.example.fitnesstracker.domain.gym
 
+import com.example.fitnesstracker.i18n.tr
+
 /** Eine beendete Einheit mit Plan und Routine, unabhängig von Room. */
 data class PlanSessionRef(val planId: Long?, val routineId: Long?, val routineName: String, val dateEpochDay: Long, val startedAt: Long)
 
@@ -73,8 +75,8 @@ object PlanProgressCalculator {
 
     /** „heute“, „gestern“ oder „vor 3 Tagen“. */
     fun daysAgoText(epochDay: Long, today: Long): String = when (val days = today - epochDay) {
-        0L -> "heute"
-        1L -> "gestern"
-        else -> if (days < 0) "heute" else "vor $days Tagen"
+        0L -> tr("heute", "today")
+        1L -> tr("gestern", "yesterday")
+        else -> if (days < 0) tr("heute", "today") else tr("vor $days Tagen", "$days days ago")
     }
 }

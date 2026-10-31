@@ -37,6 +37,7 @@ import com.example.fitnesstracker.domain.gym.PlanProgressCalculator
 import com.example.fitnesstracker.domain.gym.PlanSessionRef
 import com.example.fitnesstracker.domain.gym.RoutinePlans
 import com.example.fitnesstracker.domain.gym.toData
+import com.example.fitnesstracker.i18n.tr
 import com.example.fitnesstracker.ui.weight.ForgeCard
 import java.time.LocalDate
 
@@ -147,7 +148,7 @@ private fun GymHome(
         }
 
         GymTabs(
-            labels = listOf("Routinen", "Verlauf", "Fortschritt"),
+            labels = listOf(tr("Routinen", "Routines"), tr("Verlauf", "History"), tr("Fortschritt", "Progress")),
             selected = homeTab,
             onSelect = onTab
         )
@@ -199,7 +200,7 @@ private fun ActiveSessionBanner(session: GymSession, onResume: () -> Unit) {
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "WORKOUT LÄUFT",
+                    text = tr("WORKOUT LÄUFT", "WORKOUT IN PROGRESS"),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -208,12 +209,12 @@ private fun ActiveSessionBanner(session: GymSession, onResume: () -> Unit) {
                     style = MaterialTheme.typography.titleMedium
                 )
                 Text(
-                    text = "Gestartet um ${GymFormat.clock(session.startedAt)}",
+                    text = tr("Gestartet um ${GymFormat.clock(session.startedAt)}", "Started at ${GymFormat.clock(session.startedAt)}"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Button(onClick = onResume) { Text("Fortsetzen") }
+            Button(onClick = onResume) { Text(tr("Fortsetzen", "Resume")) }
         }
     }
 }
@@ -248,7 +249,7 @@ private fun RoutinesTab(
     var duplicateError by remember { mutableStateOf<String?>(null) }
     var planError by remember { mutableStateOf<String?>(null) }
 
-    Button(onClick = { onNavigate("editor:0") }, modifier = Modifier.fillMaxWidth()) { Text("+ Neue Routine") }
+    Button(onClick = { onNavigate("editor:0") }, modifier = Modifier.fillMaxWidth()) { Text(tr("+ Neue Routine", "+ New routine")) }
 
     Spacer(modifier = Modifier.height(8.dp))
 
@@ -257,18 +258,18 @@ private fun RoutinesTab(
             onClick = { onStart(null) },
             enabled = !hasActive,
             modifier = Modifier.weight(1f)
-        ) { Text("Freies Workout") }
+        ) { Text(tr("Freies Workout", "Free workout")) }
 
-        OutlinedButton(onClick = { onNavigate("library") }, modifier = Modifier.weight(1f)) { Text("Übungen") }
+        OutlinedButton(onClick = { onNavigate("library") }, modifier = Modifier.weight(1f)) { Text(tr("Übungen", "Exercises")) }
     }
 
     Spacer(modifier = Modifier.height(8.dp))
 
-    OutlinedButton(onClick = { newPlan = true }, modifier = Modifier.fillMaxWidth()) { Text("+ Neuer Trainingsplan") }
+    OutlinedButton(onClick = { newPlan = true }, modifier = Modifier.fillMaxWidth()) { Text(tr("+ Neuer Trainingsplan", "+ New training plan")) }
 
     if (groups.isEmpty()) {
         Spacer(modifier = Modifier.height(16.dp))
-        EmptyHint("Noch keine Routine. Lege zuerst unter „Übungen“ deine Übungen an und erstelle danach deine erste Routine, zum Beispiel „Push Day“.")
+        EmptyHint(tr("Noch keine Routine. Lege zuerst unter „Übungen“ deine Übungen an und erstelle danach deine erste Routine, zum Beispiel „Push Day“.", "No routines yet. First create your exercises under “Exercises”, then build your first routine, for example “Push Day”."))
     }
 
     groups.forEach { group ->
@@ -276,16 +277,16 @@ private fun RoutinesTab(
 
         Row(verticalAlignment = Alignment.Bottom) {
             Box(modifier = Modifier.weight(1f)) {
-                GroupLabel(plan?.name ?: if (groups.size == 1) "Routinen" else "Ohne Plan")
+                GroupLabel(plan?.name ?: if (groups.size == 1) tr("Routinen", "Routines") else tr("Ohne Plan", "No plan"))
             }
             if (plan != null) {
                 OverflowMenu(
                     listOf(
-                        MenuAction("Routine hinzufügen") { onNavigate("newin:${plan.id}") },
-                        MenuAction("Umbenennen") { renamePlan = plan },
-                        MenuAction("Duplizieren") { duplicatePlan = plan },
-                        MenuAction("Plan archivieren") { viewModel.setPlanArchived(plan.id, archived = true) },
-                        MenuAction("Plan löschen", destructive = true) { deletePlan = plan }
+                        MenuAction(tr("Routine hinzufügen", "Add routine")) { onNavigate("newin:${plan.id}") },
+                        MenuAction(tr("Umbenennen", "Rename")) { renamePlan = plan },
+                        MenuAction(tr("Duplizieren", "Duplicate")) { duplicatePlan = plan },
+                        MenuAction(tr("Plan archivieren", "Archive plan")) { viewModel.setPlanArchived(plan.id, archived = true) },
+                        MenuAction(tr("Plan löschen", "Delete plan"), destructive = true) { deletePlan = plan }
                     )
                 )
             }
@@ -304,7 +305,7 @@ private fun RoutinesTab(
         }
 
         if (group.routines.isEmpty()) {
-            EmptyHint("Noch keine Routine in diesem Plan. Füge über ⋮ eine hinzu.")
+            EmptyHint(tr("Noch keine Routine in diesem Plan. Füge über ⋮ eine hinzu.", "No routines in this plan yet. Add one via ⋮."))
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -319,12 +320,12 @@ private fun RoutinesTab(
                     onEdit = { onNavigate("editor:${routine.id}") },
                     menu = listOfNotNull(
                         if (plan != null && index > 0)
-                            MenuAction("Nach oben") { viewModel.moveRoutineInPlan(routine.id, up = true) }
+                            MenuAction(tr("Nach oben", "Move up")) { viewModel.moveRoutineInPlan(routine.id, up = true) }
                         else null,
                         if (plan != null && index < group.routines.lastIndex)
-                            MenuAction("Nach unten") { viewModel.moveRoutineInPlan(routine.id, up = false) }
+                            MenuAction(tr("Nach unten", "Move down")) { viewModel.moveRoutineInPlan(routine.id, up = false) }
                         else null,
-                        MenuAction("Archivieren") { viewModel.setRoutineArchived(routine.id, archived = true) }
+                        MenuAction(tr("Archivieren", "Archive")) { viewModel.setRoutineArchived(routine.id, archived = true) }
                     )
                 )
             }
@@ -334,14 +335,14 @@ private fun RoutinesTab(
     if (!archive.isEmpty) {
         Spacer(modifier = Modifier.height(16.dp))
         TextButton(onClick = { onNavigate("archive") }, modifier = Modifier.fillMaxWidth()) {
-            Text("Archiv (${archive.count}) ›")
+            Text(tr("Archiv (${archive.count}) ›", "Archive (${archive.count}) ›"))
         }
     }
 
     if (newPlan || renamePlan != null) {
         val editing = renamePlan
         PlanNameDialog(
-            title = if (editing == null) "Neuer Trainingsplan" else "Plan umbenennen",
+            title = if (editing == null) tr("Neuer Trainingsplan", "New training plan") else tr("Plan umbenennen", "Rename plan"),
             initialName = editing?.name.orEmpty(),
             error = planError,
             onSave = { name ->
@@ -380,9 +381,9 @@ private fun RoutinesTab(
 
     deletePlan?.let { plan ->
         ConfirmDialog(
-            title = "Plan löschen?",
-            message = "Nur der Plan „${plan.name}“ wird gelöscht. Seine Routinen bleiben erhalten und sind danach ohne Plan.",
-            confirmLabel = "Löschen",
+            title = tr("Plan löschen?", "Delete plan?"),
+            message = tr("Nur der Plan „${plan.name}“ wird gelöscht. Seine Routinen bleiben erhalten und sind danach ohne Plan.", "Only the plan “${plan.name}” is deleted. Its routines are kept and will have no plan."),
+            confirmLabel = tr("Löschen", "Delete"),
             onConfirm = {
                 viewModel.deletePlan(plan.id)
                 deletePlan = null
@@ -398,9 +399,9 @@ private fun PlanProgressLine(progress: PlanProgress, today: Long) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
 
     Text(
-        text = "Woche ${progress.week} · " +
-                (if (progress.rounds == 1) "1 Durchgang" else "${progress.rounds} Durchgänge") +
-                " · zuletzt ${progress.lastRoutineName} " +
+        text = tr("Woche ${progress.week} · ", "Week ${progress.week} · ") +
+                (if (progress.rounds == 1) tr("1 Durchgang", "1 round") else tr("${progress.rounds} Durchgänge", "${progress.rounds} rounds")) +
+                tr(" · zuletzt ${progress.lastRoutineName} ", " · last ${progress.lastRoutineName} ") +
                 "(${PlanProgressCalculator.daysAgoText(progress.lastEpochDay, today)})",
         style = MaterialTheme.typography.bodySmall,
         color = muted
@@ -415,7 +416,7 @@ private fun PlanProgressLine(progress: PlanProgress, today: Long) {
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "${progress.doneThisWeek} von ${progress.routineCount} diese Woche",
+                text = tr("${progress.doneThisWeek} von ${progress.routineCount} diese Woche", "${progress.doneThisWeek} of ${progress.routineCount} this week"),
                 style = MaterialTheme.typography.bodySmall,
                 color = muted
             )
@@ -440,8 +441,8 @@ private fun RoutineCard(
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = if (items.isEmpty()) "Keine Übungen"
-                else "${items.size} Übungen · " +
+                text = if (items.isEmpty()) tr("Keine Übungen", "No exercises")
+                else tr("${items.size} Übungen · ", "${items.size} exercises · ") +
                         exerciseNames.take(3).joinToString(", ") +
                         if (exerciseNames.size > 3) " …" else "",
                 style = MaterialTheme.typography.bodySmall,
@@ -459,9 +460,9 @@ private fun RoutineCard(
                     onClick = onStart,
                     enabled = canStart,
                     modifier = Modifier.weight(1f)
-                ) { Text("Starten") }
+                ) { Text(tr("Starten", "Start")) }
 
-                TextButton(onClick = onEdit) { Text("Bearbeiten") }
+                TextButton(onClick = onEdit) { Text(tr("Bearbeiten", "Edit")) }
 
                 OverflowMenu(menu)
             }

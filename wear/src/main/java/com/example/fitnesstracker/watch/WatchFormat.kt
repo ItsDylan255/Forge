@@ -1,17 +1,17 @@
 package com.example.fitnesstracker.watch
 
 import java.text.NumberFormat
-import java.util.Locale
 
 object WatchFormat {
 
-    private val locale = Locale.GERMANY
+    private val locale get() = WatchLang.locale
 
     /** 8432 -> "8.432" */
     fun steps(steps: Int): String = NumberFormat.getIntegerInstance(locale).format(steps)
 
-    /** 80.4 -> "80,4 kg" */
-    fun kg(weightKg: Double): String = String.format(locale, "%.1f kg", weightKg).replace(",0 kg", " kg")
+    /** 80.4 -> "80,4 kg" (Englisch: "80.4 kg"), ganze Werte ohne Nachkomma. */
+    fun kg(weightKg: Double): String =
+        String.format(locale, "%.1f kg", weightKg).replace(",0 kg", " kg").replace(".0 kg", " kg")
 
     /** Laufende Uhr: "05:32" oder "1:05:32". */
     fun timer(millis: Long): String {

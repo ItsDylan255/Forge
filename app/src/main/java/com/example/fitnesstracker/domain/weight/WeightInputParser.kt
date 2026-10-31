@@ -1,9 +1,14 @@
 package com.example.fitnesstracker.domain.weight
 
-enum class WeightInputError(val message: String) {
-    EMPTY("Bitte gib ein Gewicht ein."),
-    NOT_A_NUMBER("Bitte gib eine Zahl ein, z. B. 95,4."),
-    NOT_POSITIVE("Das Gewicht muss größer als 0 sein.")
+import com.example.fitnesstracker.i18n.tr
+
+enum class WeightInputError(private val de: String, private val en: String) {
+    EMPTY("Bitte gib ein Gewicht ein.", "Please enter a weight."),
+    NOT_A_NUMBER("Bitte gib eine Zahl ein, z. B. 95,4.", "Please enter a number, e.g. 95.4."),
+    NOT_POSITIVE("Das Gewicht muss größer als 0 sein.", "The weight must be greater than 0.");
+
+    /** Text in der aktuellen Sprache. */
+    val message: String get() = tr(de, en)
 }
 
 sealed interface WeightParseResult {

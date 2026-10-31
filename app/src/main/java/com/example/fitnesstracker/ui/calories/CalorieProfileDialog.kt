@@ -29,15 +29,16 @@ import com.example.fitnesstracker.domain.calories.CalorieInputParser
 import com.example.fitnesstracker.domain.calories.CalorieParse
 import com.example.fitnesstracker.domain.calories.CalorieProfile
 import com.example.fitnesstracker.domain.calories.Sex
+import com.example.fitnesstracker.i18n.tr
 
 internal fun activityLabel(a: ActivityLevel): String = when (a) {
-    ActivityLevel.SEDENTARY -> "Sitzend (1,2)"
-    ActivityLevel.LIGHT -> "Leicht aktiv, 1–3 Tage Sport (1,4)"
-    ActivityLevel.MODERATE -> "Moderat, 3–5 Tage Sport (1,55)"
-    ActivityLevel.VERY_ACTIVE -> "Sehr aktiv, 6–7 Tage Sport (1,725)"
+    ActivityLevel.SEDENTARY -> tr("Sitzend (1,2)", "Sedentary (1.2)")
+    ActivityLevel.LIGHT -> tr("Leicht aktiv, 1–3 Tage Sport (1,4)", "Lightly active, 1–3 days of exercise (1.4)")
+    ActivityLevel.MODERATE -> tr("Moderat, 3–5 Tage Sport (1,55)", "Moderate, 3–5 days of exercise (1.55)")
+    ActivityLevel.VERY_ACTIVE -> tr("Sehr aktiv, 6–7 Tage Sport (1,725)", "Very active, 6–7 days of exercise (1.725)")
 }
 
-internal fun sexLabel(s: Sex): String = if (s == Sex.MALE) "Männlich" else "Weiblich"
+internal fun sexLabel(s: Sex): String = if (s == Sex.MALE) tr("Männlich", "Male") else tr("Weiblich", "Female")
 
 /** Dialog zum Anlegen/Bearbeiten des Profils. Prüft alle Eingaben über den Parser. */
 @Composable
@@ -80,7 +81,7 @@ fun CalorieProfileDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Profil") },
+        title = { Text(tr("Profil", "Profile")) },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -88,15 +89,15 @@ fun CalorieProfileDialog(
             ) {
                 OutlinedTextField(
                     value = height, onValueChange = { height = it; error = null },
-                    label = { Text("Größe (cm)") }, singleLine = true,
+                    label = { Text(tr("Größe (cm)", "Height (cm)")) }, singleLine = true,
                     keyboardOptions = numberKeys, modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = age, onValueChange = { age = it; error = null },
-                    label = { Text("Alter (Jahre)") }, singleLine = true,
+                    label = { Text(tr("Alter (Jahre)", "Age (years)")) }, singleLine = true,
                     keyboardOptions = numberKeys, modifier = Modifier.fillMaxWidth()
                 )
-                Text("Geschlecht", style = MaterialTheme.typography.labelMedium)
+                Text(tr("Geschlecht", "Sex"), style = MaterialTheme.typography.labelMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Sex.entries.forEach { option ->
                         Row(
@@ -108,7 +109,7 @@ fun CalorieProfileDialog(
                         }
                     }
                 }
-                Text("Aktivität", style = MaterialTheme.typography.labelMedium)
+                Text(tr("Aktivität", "Activity"), style = MaterialTheme.typography.labelMedium)
                 ActivityLevel.entries.forEach { option ->
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -121,7 +122,7 @@ fun CalorieProfileDialog(
                         Text(activityLabel(option), modifier = Modifier.padding(start = 6.dp))
                     }
                 }
-                Text("Makro-Verteilung (%)", style = MaterialTheme.typography.labelMedium)
+                Text(tr("Makro-Verteilung (%)", "Macro split (%)"), style = MaterialTheme.typography.labelMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = protein, onValueChange = { protein = it; error = null },
@@ -135,12 +136,12 @@ fun CalorieProfileDialog(
                     )
                     OutlinedTextField(
                         value = fat, onValueChange = { fat = it; error = null },
-                        label = { Text("Fett") }, singleLine = true,
+                        label = { Text(tr("Fett", "Fat")) }, singleLine = true,
                         keyboardOptions = numberKeys, modifier = Modifier.weight(1f)
                     )
                 }
                 Text(
-                    "Summe: $sum %",
+                    tr("Summe: $sum %", "Total: $sum %"),
                     style = MaterialTheme.typography.bodySmall,
                     color = if (sum == 100) MaterialTheme.colorScheme.onSurfaceVariant
                     else MaterialTheme.colorScheme.error
@@ -151,7 +152,7 @@ fun CalorieProfileDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { trySave() }) { Text("Speichern") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }
+        confirmButton = { TextButton(onClick = { trySave() }) { Text(tr("Speichern", "Save")) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Abbrechen", "Cancel")) } }
     )
 }

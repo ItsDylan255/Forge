@@ -22,10 +22,11 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.fitnesstracker.domain.gym.GymFormat
+import com.example.fitnesstracker.i18n.L10n
+import com.example.fitnesstracker.i18n.tr
 import com.example.fitnesstracker.ui.theme.ForgeColors
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.log10
@@ -153,7 +154,7 @@ fun GymLineChart(
 
     val axisStyle = TextStyle(color = secondary, fontSize = 11.sp, fontWeight = FontWeight.Medium)
     val valueStyle = TextStyle(color = onSurface, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-    val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.", Locale.GERMANY)
+    val dateFormatter = DateTimeFormatter.ofPattern(tr("dd.MM.", "dd/MM"), L10n.locale)
 
     Canvas(
         modifier = modifier
@@ -206,7 +207,7 @@ fun GymLineChart(
             )
 
             val measured = textMeasurer.measure(
-                String.format(Locale.GERMANY, "%.${decimals}f", value), axisStyle
+                String.format(L10n.locale, "%.${decimals}f", value), axisStyle
             )
             drawText(
                 textLayoutResult = measured,

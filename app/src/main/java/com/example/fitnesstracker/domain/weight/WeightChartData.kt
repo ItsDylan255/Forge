@@ -1,11 +1,16 @@
 package com.example.fitnesstracker.domain.weight
 
-enum class ChartRange(val label: String, val days: Int?) {
-    WEEK("7 Tage", 7),
-    MONTH("30 Tage", 30),
-    QUARTER("90 Tage", 90),
-    YEAR("1 Jahr", 365),
-    ALL("Gesamt", null)
+import com.example.fitnesstracker.i18n.tr
+
+enum class ChartRange(private val de: String, private val en: String, val days: Int?) {
+    WEEK("7 Tage", "7 days", 7),
+    MONTH("30 Tage", "30 days", 30),
+    QUARTER("90 Tage", "90 days", 90),
+    YEAR("1 Jahr", "1 year", 365),
+    ALL("Gesamt", "All", null);
+
+    /** Text in der aktuellen Sprache. */
+    val label: String get() = tr(de, en)
 }
 
 /**

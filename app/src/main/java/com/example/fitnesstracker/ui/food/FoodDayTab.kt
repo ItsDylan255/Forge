@@ -28,6 +28,7 @@ import com.example.fitnesstracker.domain.food.FoodLogData
 import com.example.fitnesstracker.domain.food.Macros
 import com.example.fitnesstracker.domain.calories.CalorieNote
 import com.example.fitnesstracker.domain.calories.CalorieTarget
+import com.example.fitnesstracker.i18n.tr
 import com.example.fitnesstracker.ui.calories.calorieNoteText
 import com.example.fitnesstracker.ui.gym.EmptyHint
 import com.example.fitnesstracker.ui.gym.GroupLabel
@@ -108,7 +109,7 @@ internal fun FoodDayTab(
     // ---------- Summen ----------
     ForgeCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(20.dp)) {
-            SectionLabel("Kalorien")
+            SectionLabel(tr("Kalorien", "Calories"))
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -126,7 +127,7 @@ internal fun FoodDayTab(
 
             if (calorieGoal != null && fraction != null && percent != null) {
                 Text(
-                    text = "von ${FoodFormat.kcal(calorieGoal.toDouble())}",
+                    text = tr("von ${FoodFormat.kcal(calorieGoal.toDouble())}", "of ${FoodFormat.kcal(calorieGoal.toDouble())}"),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -146,8 +147,8 @@ internal fun FoodDayTab(
                         style = MaterialTheme.typography.titleMedium
                     )
                     Text(
-                        text = if (totals.kcal >= calorieGoal) "Ziel erreicht"
-                        else "Noch ${FoodFormat.kcal(calorieGoal - totals.kcal)}",
+                        text = if (totals.kcal >= calorieGoal) tr("Ziel erreicht", "Goal reached")
+                        else tr("Noch ${FoodFormat.kcal(calorieGoal - totals.kcal)}", "${FoodFormat.kcal(calorieGoal - totals.kcal)} left"),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -176,16 +177,16 @@ internal fun FoodDayTab(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Noch kein Kalorienziel.",
+                text = tr("Noch kein Kalorienziel.", "No calorie goal yet."),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 4.dp)
             )
-            TextButton(onClick = onOpenSettings) { Text("Profil anlegen") }
+            TextButton(onClick = onOpenSettings) { Text(tr("Profil anlegen", "Create profile")) }
         }
 
         else -> Text(
-            text = "Trage dein Gewicht im Gewicht-Tab ein, um dein Tagesziel zu berechnen.",
+            text = tr("Trage dein Gewicht im Gewicht-Tab ein, um dein Tagesziel zu berechnen.", "Log your weight in the Weight tab to calculate your daily target."),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 4.dp)
@@ -197,15 +198,15 @@ internal fun FoodDayTab(
     // Mit Ziel: "Ist / Soll", zum Beispiel "92,5 / 150 g"
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         StatBox("Protein", macroText(totals.protein, calorieTarget?.macros?.proteinG), Modifier.weight(1f))
-        StatBox("Kohlenhydrate", macroText(totals.carbs, calorieTarget?.macros?.carbsG), Modifier.weight(1f))
-        StatBox("Fett", macroText(totals.fat, calorieTarget?.macros?.fatG), Modifier.weight(1f))
+        StatBox(tr("Kohlenhydrate", "Carbs"), macroText(totals.carbs, calorieTarget?.macros?.carbsG), Modifier.weight(1f))
+        StatBox(tr("Fett", "Fat"), macroText(totals.fat, calorieTarget?.macros?.fatG), Modifier.weight(1f))
     }
 
     // ---------- Eintraege ----------
     // Ohne Eintraege bleibt der Bereich leer
     if (entries.isEmpty()) return
 
-    GroupLabel("Einträge")
+    GroupLabel(tr("Einträge", "Entries"))
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         entries.forEach { entry ->

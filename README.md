@@ -2,7 +2,7 @@
 
 **Forge** is an offline-first Android fitness tracker for weight, steps, nutrition and gym training. Everything is stored locally on your device. No account, no cloud, no ads.
 
-> The app's user interface is in German.
+> The app is available in **German** and **English**. It follows your phone's language, or you can pick one under **Settings → Language**.
 
 ## Features
 
@@ -35,11 +35,12 @@ A companion app for the watch that shows what's happening on your phone. All inp
 - **Workout on your wrist:** opens automatically when you start a workout on the phone, and shows the current exercise, set, target reps, your last performance and new 1RM records
 - **Rest timer** with a progress ring that vibrates on your wrist when the rest is over. **+30 s** and **skip** are the only buttons on the watch
 - **Ongoing activity:** an icon on the watch face takes you back to the workout at any time
-- **Tile** with today's steps (as a ring), weight and calories
+- **Home screen and tile** with today's steps, calories eaten versus your daily target, and weight
 - **Complication** that shows today's steps on your watch face
+- Uses the same language as the phone app
 
 ### Data export
-Export all your data as a ZIP file of CSV tables (**Settings → Daten → Exportieren**):
+Export all your data as a ZIP file of CSV tables (**Settings → Data → Export**). File and column names are German in both languages, so scripts keep working:
 
 | File | Contents |
 |---|---|
@@ -60,14 +61,14 @@ days = pd.read_csv("tage.csv", parse_dates=["datum"])
 
 ## Installation
 
-1. Download `forge-1.1.0.apk` from the [latest release](https://github.com/ItsDylan255/Forge/releases/latest).
+1. Download `forge-1.1.1.apk` from the [latest release](https://github.com/ItsDylan255/Forge/releases/latest).
 2. Open it on your Android phone and allow installing apps from this source.
 
 Requires **Android 8.0 (API 26)** or newer.
 
 ### Watch app (optional)
 
-Requires **Wear OS 3** or newer (e.g. Galaxy Watch 4 and later). The watch app isn't on the Play Store, so you install `forge-watch-1.1.0.apk` from the release over Wi-Fi debugging:
+Requires **Wear OS 3** or newer (e.g. Galaxy Watch 4 and later). The watch app isn't on the Play Store, so you install `forge-watch-1.1.1.apk` from the release over Wi-Fi debugging:
 
 1. On the watch, enable developer options: **Settings → About watch → Software**, tap **Software version** 7 times.
 2. Under **Settings → Developer options**, turn on **ADB debugging** and **Wireless debugging**, then tap **Pair new device**.
@@ -75,7 +76,7 @@ Requires **Wear OS 3** or newer (e.g. Galaxy Watch 4 and later). The watch app i
    ```bash
    adb pair <ip>:<pairing-port>     # code shown on the watch
    adb connect <ip>:<port>          # address shown under Wireless debugging
-   adb install forge-watch-1.1.0.apk   # from the latest release
+   adb install forge-watch-1.1.1.apk   # from the latest release
    ```
 
 Phone and watch app must be signed with the same key, otherwise they can't talk to each other.
@@ -104,6 +105,7 @@ cd Forge
 ```
 app/src/main/java/com/example/fitnesstracker/
 ├── data/       Room entities, DAOs, repositories, preferences, export
+├── i18n/       App language (German/English) and the tr() helper
 ├── domain/     Pure Kotlin logic (calculations, parsing, formatting), unit-tested
 ├── service/    Workout and step services, reminders, notifications
 ├── ui/         Compose screens per area (gym, weight, steps, food, settings, ...)

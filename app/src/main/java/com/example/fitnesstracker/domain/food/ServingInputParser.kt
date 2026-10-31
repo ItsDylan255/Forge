@@ -1,5 +1,7 @@
 package com.example.fitnesstracker.domain.food
 
+import com.example.fitnesstracker.i18n.tr
+
 /** Eingabeprüfung für Portionen, Anzahl und Portionen einer Mahlzeit. */
 object ServingInputParser {
 
@@ -8,16 +10,16 @@ object ServingInputParser {
     const val MAX_SERVINGS = 100.0
 
     /** Vorschläge zum Antippen beim Anlegen einer Portion. */
-    val suggestions: List<String> = listOf("Stück", "Scheibe", "Portion", "EL", "TL", "Tasse", "Glas")
+    val suggestions: List<String> get() = listOf(tr("Stück", "Piece"), tr("Scheibe", "Slice"), tr("Portion", "Serving"), tr("EL", "tbsp"), tr("TL", "tsp"), tr("Tasse", "Cup"), tr("Glas", "Glass"))
 
     private val DECIMAL = Regex("""^(\d+[.,]?\d*|[.,]\d+)$""")
 
     fun parseName(input: String): FoodParseResult<String> {
         val cleaned = input.trim()
         return when {
-            cleaned.isEmpty() -> FoodParseResult.Invalid("Der Name der Portion darf nicht leer sein.")
+            cleaned.isEmpty() -> FoodParseResult.Invalid(tr("Der Name der Portion darf nicht leer sein.", "The serving name can't be empty."))
             cleaned.length > MAX_NAME_LENGTH ->
-                FoodParseResult.Invalid("Der Name der Portion darf höchstens $MAX_NAME_LENGTH Zeichen haben.")
+                FoodParseResult.Invalid(tr("Der Name der Portion darf höchstens $MAX_NAME_LENGTH Zeichen haben.", "The serving name can have at most $MAX_NAME_LENGTH characters."))
             else -> FoodParseResult.Valid(cleaned)
         }
     }
@@ -27,18 +29,18 @@ object ServingInputParser {
 
     /** Anzahl der Portionen beim Eintragen: größer als 0, höchstens 100, auch 0,5 oder 1,5. */
     fun parseCount(input: String): FoodParseResult<Double> =
-        parsePositive(input, "die Anzahl", "Anzahl", ServingCalculator.MAX_COUNT)
+        parsePositive(input, tr("die Anzahl", "the amount"), tr("Anzahl", "Amount"), ServingCalculator.MAX_COUNT)
 
     /** "Ergibt … Portionen" einer Mahlzeit: größer als 0, höchstens 100. */
     fun parseServings(input: String): FoodParseResult<Double> =
-        parsePositive(input, "die Zahl der Portionen", "Portionen", MAX_SERVINGS)
+        parsePositive(input, tr("die Zahl der Portionen", "the number of servings"), tr("Portionen", "Servings"), MAX_SERVINGS)
 
     /** Höchstens [MAX_PORTIONS] Portionen, jeder Name nur einmal (ohne Groß-/Kleinschreibung). */
     fun validatePortions(portions: List<PortionData>): FoodParseResult<List<PortionData>> = when {
         portions.size > MAX_PORTIONS ->
-            FoodParseResult.Invalid("Höchstens $MAX_PORTIONS Portionen pro Lebensmittel.")
+            FoodParseResult.Invalid(tr("Höchstens $MAX_PORTIONS Portionen pro Lebensmittel.", "At most $MAX_PORTIONS servings per food."))
         portions.map { it.name.trim().lowercase() }.distinct().size != portions.size ->
-            FoodParseResult.Invalid("Jede Portion braucht einen eigenen Namen.")
+            FoodParseResult.Invalid(tr("Jede Portion braucht einen eigenen Namen.", "Each serving needs its own name."))
         else -> FoodParseResult.Valid(portions)
     }
 
@@ -49,14 +51,14 @@ object ServingInputParser {
         max: Double
     ): FoodParseResult<Double> {
         val cleaned = input.trim()
-        if (cleaned.isEmpty()) return FoodParseResult.Invalid("Bitte gib $what ein.")
+        if (cleaned.isEmpty()) return FoodParseResult.Invalid(tr("Bitte gib $what ein.", "Please enter $what."))
 
         val value = (if (DECIMAL.matches(cleaned)) cleaned.replace(',', '.').toDoubleOrNull() else null)
-            ?: return FoodParseResult.Invalid("$label: bitte eine Zahl eingeben, z. B. 2 oder 1,5.")
+            ?: return FoodParseResult.Invalid(tr("$label: bitte eine Zahl eingeben, z. B. 2 oder 1,5.", "$label: please enter a number, e.g. 2 or 1.5."))
 
         return when {
-            value <= 0.0 -> FoodParseResult.Invalid("$label muss größer als 0 sein.")
-            value > max -> FoodParseResult.Invalid("$label darf höchstens ${max.toInt()} betragen.")
+            value <= 0.0 -> FoodParseResult.Invalid(tr("$label muss größer als 0 sein.", "$label must be greater than 0."))
+            value > max -> FoodParseResult.Invalid(tr("$label darf höchstens ${max.toInt()} betragen.", "$label can be at most ${max.toInt()}."))
             else -> FoodParseResult.Valid(value)
         }
     }

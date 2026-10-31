@@ -1,5 +1,7 @@
 package com.example.fitnesstracker.domain.weight
 
+import com.example.fitnesstracker.i18n.L10n
+import com.example.fitnesstracker.i18n.tr
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -8,8 +10,8 @@ import kotlin.math.abs
 
 object WeightFormat {
 
-    private val locale: Locale = Locale.GERMANY
-    private val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy", locale)
+    private val locale: Locale get() = L10n.locale
+    private val dateFormatter get() = DateTimeFormatter.ofPattern(tr("dd.MM.yyyy", "dd/MM/yyyy"), locale)
 
     private const val MINUS = "\u2212"
     private const val PLUS_MINUS = "\u00B1"
@@ -20,7 +22,7 @@ object WeightFormat {
         return BigDecimal(kg.toString())
             .stripTrailingZeros()
             .toPlainString()
-            .replace('.', ',')
+            .let { if (L10n.isEnglish) it else it.replace('.', ',') }
     }
 
     /** Anzeige mit einer Nachkommastelle, z. B. "95,4 kg". */

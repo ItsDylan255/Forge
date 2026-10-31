@@ -1,10 +1,15 @@
 package com.example.fitnesstracker.domain.steps
 
-enum class StepGoalError(val message: String) {
-    EMPTY("Bitte gib ein Schrittziel ein."),
-    NOT_A_NUMBER("Bitte gib eine ganze Zahl ein, z. B. 10000."),
-    TOO_LOW("Das Ziel muss mindestens ${StepGoalParser.MIN_GOAL} Schritte betragen."),
-    TOO_HIGH("Das Ziel darf höchstens ${StepGoalParser.MAX_GOAL} Schritte betragen.")
+import com.example.fitnesstracker.i18n.tr
+
+enum class StepGoalError(private val de: String, private val en: String) {
+    EMPTY("Bitte gib ein Schrittziel ein.", "Please enter a step goal."),
+    NOT_A_NUMBER("Bitte gib eine ganze Zahl ein, z. B. 10000.", "Please enter a whole number, e.g. 10000."),
+    TOO_LOW("Das Ziel muss mindestens ${StepGoalParser.MIN_GOAL} Schritte betragen.", "The goal must be at least ${StepGoalParser.MIN_GOAL} steps."),
+    TOO_HIGH("Das Ziel darf höchstens ${StepGoalParser.MAX_GOAL} Schritte betragen.", "The goal can be at most ${StepGoalParser.MAX_GOAL} steps.");
+
+    /** Text in der aktuellen Sprache. */
+    val message: String get() = tr(de, en)
 }
 
 sealed interface StepGoalParseResult {

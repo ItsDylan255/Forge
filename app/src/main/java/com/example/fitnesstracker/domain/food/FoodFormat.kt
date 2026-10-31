@@ -1,5 +1,7 @@
 package com.example.fitnesstracker.domain.food
 
+import com.example.fitnesstracker.i18n.L10n
+import com.example.fitnesstracker.i18n.tr
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.text.NumberFormat
@@ -9,9 +11,9 @@ import java.util.Locale
 
 object FoodFormat {
 
-    private val locale: Locale = Locale.GERMANY
-    private val dateFormatter = DateTimeFormatter.ofPattern("EEE, dd.MM.yyyy", locale)
-    private val shortFormatter = DateTimeFormatter.ofPattern("dd.MM.", locale)
+    private val locale: Locale get() = L10n.locale
+    private val dateFormatter get() = DateTimeFormatter.ofPattern(tr("EEE, dd.MM.yyyy", "EEE, dd/MM/yyyy"), locale)
+    private val shortFormatter get() = DateTimeFormatter.ofPattern(tr("dd.MM.", "dd/MM"), locale)
 
     /** Ganze Zahl mit Tausenderpunkt: 2150 -> "2.150". */
     fun int(value: Double): String =
@@ -26,7 +28,7 @@ object FoodFormat {
             .setScale(2, RoundingMode.HALF_UP)
             .stripTrailingZeros()
             .toPlainString()
-            .replace('.', ',')
+            .let { if (L10n.isEnglish) it else it.replace('.', ',') }
     }
 
     fun grams(value: Double): String = "${number(value)} g"
@@ -40,9 +42,9 @@ object FoodFormat {
 
     /** "Heute", "Gestern", "Morgen" oder z. B. "Mo., 12.10.2026". */
     fun dayLabel(epochDay: Long, today: Long): String = when (epochDay - today) {
-        0L -> "Heute"
-        -1L -> "Gestern"
-        1L -> "Morgen"
+        0L -> tr("Heute", "Today")
+        -1L -> tr("Gestern", "Yesterday")
+        1L -> tr("Morgen", "Tomorrow")
         else -> LocalDate.ofEpochDay(epochDay).format(dateFormatter)
     }
 }

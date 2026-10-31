@@ -32,11 +32,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.fitnesstracker.domain.gym.MuscleGroups
 import com.example.fitnesstracker.domain.gym.ExerciseKind
 import com.example.fitnesstracker.domain.gym.GymDefaults
 import com.example.fitnesstracker.domain.gym.GymFormat
 import com.example.fitnesstracker.domain.gym.GymInputParser
 import com.example.fitnesstracker.domain.gym.GymParseResult
+import com.example.fitnesstracker.i18n.tr
 import com.example.fitnesstracker.ui.weight.ForgeCard
 
 private data class RoutineItemDraft(
@@ -190,7 +192,7 @@ fun RoutineEditorScreen(
         }
 
         if (drafts.isEmpty()) {
-            error = "Füge mindestens eine Übung hinzu."
+            error = tr("Füge mindestens eine Übung hinzu.", "Add at least one exercise.")
             return
         }
 
@@ -234,14 +236,14 @@ fun RoutineEditorScreen(
 
     GymPage {
         GymHeader(
-            title = if (routineId == null) "Neue Routine" else "Routine bearbeiten",
+            title = if (routineId == null) tr("Neue Routine", "New routine") else tr("Routine bearbeiten", "Edit routine"),
             onBack = onDone
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
         if (!loaded) {
-            EmptyHint("Lädt …")
+            EmptyHint(tr("Lädt …", "Loading …"))
             return@GymPage
         }
 
@@ -252,8 +254,8 @@ fun RoutineEditorScreen(
                 error = null
             },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("Name der Routine") },
-            placeholder = { Text("z. B. Push Day") },
+            label = { Text(tr("Name der Routine", "Routine name")) },
+            placeholder = { Text(tr("z. B. Push Day", "e.g. Push Day")) },
             singleLine = true
         )
 
@@ -261,15 +263,15 @@ fun RoutineEditorScreen(
 
         OutlinedButton(onClick = { showPlanPicker = true }, modifier = Modifier.fillMaxWidth()) {
             Text(
-                text = "Trainingsplan: " +
-                        (plans.firstOrNull { it.id == planId }?.name ?: "Kein Plan")
+                text = tr("Trainingsplan: ", "Training plan: ") +
+                        (plans.firstOrNull { it.id == planId }?.name ?: tr("Kein Plan", "No plan"))
             )
         }
 
-        GroupLabel("Übungen")
+        GroupLabel(tr("Übungen", "Exercises"))
 
         if (drafts.isEmpty()) {
-            EmptyHint("Noch keine Übung. Füge unten die erste hinzu.")
+            EmptyHint(tr("Noch keine Übung. Füge unten die erste hinzu.", "No exercises yet. Add the first one below."))
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -308,7 +310,7 @@ fun RoutineEditorScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         OutlinedButton(onClick = { showPicker = true }, modifier = Modifier.fillMaxWidth()) {
-            Text("+ Übung hinzufügen")
+            Text(tr("+ Übung hinzufügen", "+ Add exercise"))
         }
 
         error?.let { message ->
@@ -322,7 +324,7 @@ fun RoutineEditorScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Button(onClick = { save() }, modifier = Modifier.fillMaxWidth()) { Text("Routine speichern") }
+        Button(onClick = { save() }, modifier = Modifier.fillMaxWidth()) { Text(tr("Routine speichern", "Save routine")) }
 
         if (routineId != null) {
             Spacer(modifier = Modifier.height(8.dp))
@@ -332,10 +334,10 @@ fun RoutineEditorScreen(
                     onDone()
                 },
                 modifier = Modifier.fillMaxWidth()
-            ) { Text("Routine archivieren") }
+            ) { Text(tr("Routine archivieren", "Archive routine")) }
 
             TextButton(onClick = { showDelete = true }, modifier = Modifier.fillMaxWidth()) {
-                Text("Routine löschen", color = MaterialTheme.colorScheme.error)
+                Text(tr("Routine löschen", "Delete routine"), color = MaterialTheme.colorScheme.error)
             }
         }
     }
@@ -381,9 +383,9 @@ fun RoutineEditorScreen(
 
     if (showDelete && routineId != null) {
         ConfirmDialog(
-            title = "Routine löschen?",
-            message = "Die Routine wird gelöscht. Bereits absolvierte Trainings im Verlauf bleiben erhalten.",
-            confirmLabel = "Löschen",
+            title = tr("Routine löschen?", "Delete routine?"),
+            message = tr("Die Routine wird gelöscht. Bereits absolvierte Trainings im Verlauf bleiben erhalten.", "The routine will be deleted. Completed workouts in your history are kept."),
+            confirmLabel = tr("Löschen", "Delete"),
             onConfirm = {
                 viewModel.deleteRoutine(routineId)
                 showDelete = false
@@ -416,7 +418,7 @@ private fun DraftCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(text = draft.exerciseName, style = MaterialTheme.typography.titleMedium)
                     val subtitle = listOfNotNull(
-                        draft.muscleGroup,
+                        draft.muscleGroup?.let(MuscleGroups::label),
                         kind.takeIf { it != ExerciseKind.REPS }?.let { GymFormat.kindLabel(it) }
                     ).joinToString(" \u00B7 ")
                     if (subtitle.isNotEmpty()) {
@@ -448,7 +450,7 @@ private fun DraftCard(
                     value = draft.setsInput,
                     onValueChange = { onChange(draft.copy(setsInput = it)) },
                     modifier = Modifier.weight(1f),
-                    label = { Text("Sätze") },
+                    label = { Text(tr("Sätze", "Sets")) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
@@ -468,7 +470,7 @@ private fun DraftCard(
                     value = draft.repsMinInput,
                     onValueChange = { onChange(draft.copy(repsMinInput = it)) },
                     modifier = Modifier.weight(1f),
-                    label = { Text(if (kind == ExerciseKind.TIME) "Min. Sek." else "Min. Wdh.") },
+                    label = { Text(if (kind == ExerciseKind.TIME) tr("Min. Sek.", "Min. sec") else tr("Min. Wdh.", "Min. reps")) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
@@ -476,7 +478,7 @@ private fun DraftCard(
                     value = draft.repsMaxInput,
                     onValueChange = { onChange(draft.copy(repsMaxInput = it)) },
                     modifier = Modifier.weight(1f),
-                    label = { Text(if (kind == ExerciseKind.TIME) "Max. Sek." else "Max. Wdh.") },
+                    label = { Text(if (kind == ExerciseKind.TIME) tr("Max. Sek.", "Max. sec") else tr("Max. Wdh.", "Max. reps")) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
@@ -485,14 +487,14 @@ private fun DraftCard(
             Spacer(modifier = Modifier.height(8.dp))
 
             ToggleRow(
-                label = "Einseitig (rechts und links)",
+                label = tr("Einseitig (rechts und links)", "Unilateral (right and left)"),
                 checked = draft.unilateral,
                 onChange = { onChange(draft.copy(unilateral = it)) }
             )
 
             if (canLink) {
                 ToggleRow(
-                    label = "Mit nächster Übung verbinden (Superset)",
+                    label = tr("Mit nächster Übung verbinden (Superset)", "Link with next exercise (superset)"),
                     checked = draft.supersetWithNext,
                     onChange = { onChange(draft.copy(supersetWithNext = it)) }
                 )

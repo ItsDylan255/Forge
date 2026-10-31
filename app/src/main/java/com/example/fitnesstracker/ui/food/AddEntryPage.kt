@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import com.example.fitnesstracker.data.local.FoodItem
 import com.example.fitnesstracker.domain.food.FoodFormat
 import com.example.fitnesstracker.domain.food.MealCalculator
+import com.example.fitnesstracker.i18n.tr
 import com.example.fitnesstracker.ui.gym.EmptyHint
 import com.example.fitnesstracker.ui.gym.GroupLabel
 import com.example.fitnesstracker.ui.gym.GymHeader
@@ -46,10 +47,10 @@ internal fun AddEntryPage(
     val search = query.trim()
 
     GymPage {
-        GymHeader(title = "Hinzufügen", onBack = onBack)
+        GymHeader(title = tr("Hinzufügen", "Add"), onBack = onBack)
 
         Text(
-            text = "Eintrag für: $dayLabel",
+            text = tr("Eintrag für: $dayLabel", "Entry for: $dayLabel"),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -60,14 +61,14 @@ internal fun AddEntryPage(
             value = query,
             onValueChange = onQueryChange,
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("Suchen") },
+            label = { Text(tr("Suchen", "Search")) },
             singleLine = true
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
         GymTabs(
-            labels = listOf("Lebensmittel", "Mahlzeiten"),
+            labels = listOf(tr("Lebensmittel", "Foods"), tr("Mahlzeiten", "Meals")),
             selected = tab,
             onSelect = onTabChange
         )
@@ -76,7 +77,7 @@ internal fun AddEntryPage(
 
         if (tab == 0) {
             OutlinedButton(onClick = onNewFood, modifier = Modifier.fillMaxWidth()) {
-                Text("+ Neues Lebensmittel")
+                Text(tr("+ Neues Lebensmittel", "+ New food"))
             }
 
             val filtered = foods.filter { it.name.contains(search, ignoreCase = true) }
@@ -84,12 +85,12 @@ internal fun AddEntryPage(
             when {
                 foods.isEmpty() -> {
                     Spacer(modifier = Modifier.height(12.dp))
-                    EmptyHint("Noch keine Lebensmittel. Lege zum Beispiel „Haferflocken“ mit den Werten pro 100 g an.")
+                    EmptyHint(tr("Noch keine Lebensmittel. Lege zum Beispiel „Haferflocken“ mit den Werten pro 100 g an.", "No foods yet. Add one, for example “Oats” with its values per 100 g."))
                 }
 
                 filtered.isEmpty() -> {
                     Spacer(modifier = Modifier.height(12.dp))
-                    EmptyHint("Nichts gefunden.")
+                    EmptyHint(tr("Nichts gefunden.", "Nothing found."))
                 }
 
                 else -> {
@@ -101,9 +102,9 @@ internal fun AddEntryPage(
                     }
 
                     if (recents.isNotEmpty()) {
-                        GroupLabel("Zuletzt verwendet")
+                        GroupLabel(tr("Zuletzt verwendet", "Recently used"))
                         FoodRows(recents, onPickFood)
-                        GroupLabel("Alle Lebensmittel")
+                        GroupLabel(tr("Alle Lebensmittel", "All foods"))
                     } else {
                         Spacer(modifier = Modifier.height(12.dp))
                     }
@@ -113,7 +114,7 @@ internal fun AddEntryPage(
             }
         } else {
             OutlinedButton(onClick = onNewMeal, modifier = Modifier.fillMaxWidth()) {
-                Text("+ Neue Mahlzeit")
+                Text(tr("+ Neue Mahlzeit", "+ New meal"))
             }
 
             val filtered = meals.filter { it.name.contains(search, ignoreCase = true) }
@@ -122,9 +123,9 @@ internal fun AddEntryPage(
 
             when {
                 meals.isEmpty() ->
-                    EmptyHint("Noch keine Mahlzeiten. Lege zum Beispiel „Haferbrei“ aus Haferflocken und Milch an.")
+                    EmptyHint(tr("Noch keine Mahlzeiten. Lege zum Beispiel „Haferbrei“ aus Haferflocken und Milch an.", "No meals yet. Create one, for example “Porridge” from oats and milk."))
 
-                filtered.isEmpty() -> EmptyHint("Nichts gefunden.")
+                filtered.isEmpty() -> EmptyHint(tr("Nichts gefunden.", "Nothing found."))
 
                 else -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     filtered.forEach { meal ->
@@ -135,7 +136,7 @@ internal fun AddEntryPage(
                             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
                                 Text(text = meal.name, style = MaterialTheme.typography.titleMedium)
                                 Text(
-                                    text = "${meal.ingredients.size} Zutaten \u00B7 ${FoodFormat.grams(grams)} \u00B7 " +
+                                    text = tr("${meal.ingredients.size} Zutaten \u00B7 ${FoodFormat.grams(grams)} \u00B7 ", "${meal.ingredients.size} ingredients · ${FoodFormat.grams(grams)} · ") +
                                             FoodFormat.kcal(totals.kcal),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -157,7 +158,7 @@ private fun FoodRows(foods: List<FoodItem>, onPick: (Long) -> Unit) {
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
                     Text(text = food.name, style = MaterialTheme.typography.titleMedium)
                     Text(
-                        text = "Pro 100 g: ${food.per100gText()}",
+                        text = tr("Pro 100 g: ${food.per100gText()}", "Per 100 g: ${food.per100gText()}"),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

@@ -43,6 +43,7 @@ import com.example.fitnesstracker.domain.gym.ExerciseKind
 import com.example.fitnesstracker.domain.gym.GymDefaults
 import com.example.fitnesstracker.domain.gym.GymFormat
 import com.example.fitnesstracker.domain.gym.MuscleGroups
+import com.example.fitnesstracker.i18n.tr
 import com.example.fitnesstracker.ui.weight.ForgeCard
 import com.example.fitnesstracker.ui.weight.SectionLabel
 
@@ -72,7 +73,7 @@ internal fun GymHeader(
             TextButton(
                 onClick = onBack,
                 contentPadding = PaddingValues(horizontal = 0.dp)
-            ) { Text("‹ Zurück") }
+            ) { Text(tr("‹ Zurück", "‹ Back")) }
         }
 
         Row(
@@ -179,7 +180,7 @@ internal fun ConfirmDialog(
                 )
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Abbrechen", "Cancel")) } }
     )
 }
 
@@ -212,7 +213,7 @@ internal fun MuscleChips(selected: String?, onSelect: (String?) -> Unit) {
     ) {
         MuscleGroups.all.forEach { group ->
             SelectableChip(
-                label = group,
+                label = MuscleGroups.label(group),
                 selected = group == selected,
                 onClick = { onSelect(if (group == selected) null else group) }
             )
@@ -238,9 +239,9 @@ internal fun KindChips(selected: ExerciseKind, onSelect: (ExerciseKind) -> Unit)
 }
 
 private fun kindHint(kind: ExerciseKind): String = when (kind) {
-    ExerciseKind.REPS -> "Gewicht × Wiederholungen."
-    ExerciseKind.TIME -> "Haltezeit in Sekunden, z. B. Plank. Zusatzgewicht ist optional."
-    ExerciseKind.ASSISTED -> "Das Gewicht ist die Unterstützung, z. B. Assisted Dip. Weniger ist besser."
+    ExerciseKind.REPS -> tr("Gewicht × Wiederholungen.", "Weight × reps.")
+    ExerciseKind.TIME -> tr("Haltezeit in Sekunden, z. B. Plank. Zusatzgewicht ist optional.", "Hold time in seconds, e.g. plank. Added weight is optional.")
+    ExerciseKind.ASSISTED -> tr("Das Gewicht ist die Unterstützung, z. B. Assisted Dip. Weniger ist besser.", "The weight is the assistance, e.g. assisted dip. Less is better.")
 }
 
 @Composable
@@ -276,7 +277,7 @@ internal fun ExerciseEditDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "Muskelgruppe (optional)",
+                    text = tr("Muskelgruppe (optional)", "Muscle group (optional)"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -288,7 +289,7 @@ internal fun ExerciseEditDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "Art der Übung",
+                    text = tr("Art der Übung", "Exercise type"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -309,7 +310,7 @@ internal fun ExerciseEditDialog(
                 if (onDelete != null && kind != initialKind) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Bereits geloggte Sätze behalten ihre bisherige Art.",
+                        text = tr("Bereits geloggte Sätze behalten ihre bisherige Art.", "Sets you already logged keep their previous type."),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -318,13 +319,13 @@ internal fun ExerciseEditDialog(
                 if (onDelete != null) {
                     Spacer(modifier = Modifier.height(12.dp))
                     TextButton(onClick = onDelete) {
-                        Text("Übung löschen", color = MaterialTheme.colorScheme.error)
+                        Text(tr("Übung löschen", "Delete exercise"), color = MaterialTheme.colorScheme.error)
                     }
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(name, muscle, kind) }) { Text("Speichern") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }
+        confirmButton = { TextButton(onClick = { onSave(name, muscle, kind) }) { Text(tr("Speichern", "Save")) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Abbrechen", "Cancel")) } }
     )
 }
 
@@ -347,7 +348,7 @@ internal fun ExercisePickerDialog(
 
     if (creating) {
         ExerciseEditDialog(
-            title = "Neue Übung",
+            title = tr("Neue Übung", "New exercise"),
             initialName = query.trim(),
             initialMuscle = null,
             error = createError,
@@ -369,14 +370,14 @@ internal fun ExercisePickerDialog(
     } else {
         AlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text("Übung wählen") },
+            title = { Text(tr("Übung wählen", "Choose exercise")) },
             text = {
                 Column {
                     OutlinedTextField(
                         value = query,
                         onValueChange = { query = it },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Suchen") },
+                        label = { Text(tr("Suchen", "Search")) },
                         singleLine = true
                     )
 
@@ -384,8 +385,8 @@ internal fun ExercisePickerDialog(
 
                     if (filtered.isEmpty()) {
                         Text(
-                            text = if (exercises.isEmpty()) "Noch keine Übung angelegt. Lege unten deine erste an."
-                            else "Nichts gefunden.",
+                            text = if (exercises.isEmpty()) tr("Noch keine Übung angelegt. Lege unten deine erste an.", "No exercises yet. Create your first one below.")
+                            else tr("Nichts gefunden.", "Nothing found."),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(vertical = 12.dp)
@@ -408,7 +409,7 @@ internal fun ExercisePickerDialog(
                                 )
                                 Text(
                                     text = listOfNotNull(
-                                        exercise.muscleGroup,
+                                        exercise.muscleGroup?.let(MuscleGroups::label),
                                         ExerciseKind.fromCode(exercise.kind)
                                             .takeIf { it != ExerciseKind.REPS }
                                             ?.let { GymFormat.kindLabel(it) }
@@ -420,10 +421,10 @@ internal fun ExercisePickerDialog(
                         }
                     }
 
-                    TextButton(onClick = { creating = true }) { Text("+ Neue Übung anlegen") }
+                    TextButton(onClick = { creating = true }) { Text(tr("+ Neue Übung anlegen", "+ Create new exercise")) }
                 }
             },
-            confirmButton = { TextButton(onClick = onDismiss) { Text("Schließen") } }
+            confirmButton = { TextButton(onClick = onDismiss) { Text(tr("Schließen", "Close")) } }
         )
     }
 }
@@ -473,7 +474,7 @@ internal fun RestStepper(
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = "Pause",
+                text = tr("Pause", "Rest"),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

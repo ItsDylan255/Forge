@@ -1,5 +1,7 @@
 package com.example.fitnesstracker.domain.food
 
+import com.example.fitnesstracker.i18n.tr
+
 /** Eingabeprüfung für Mahlzeiten. Name und Gramm nutzen die Regeln von [FoodInputParser]. */
 object MealInputParser {
 
@@ -15,9 +17,9 @@ object MealInputParser {
         ingredients: List<MealIngredientData>
     ): FoodParseResult<List<MealIngredientData>> = when {
         ingredients.isEmpty() ->
-            FoodParseResult.Invalid("Füge mindestens eine Zutat hinzu.")
+            FoodParseResult.Invalid(tr("Füge mindestens eine Zutat hinzu.", "Add at least one ingredient."))
         ingredients.size > MAX_INGREDIENTS ->
-            FoodParseResult.Invalid("Eine Mahlzeit darf höchstens $MAX_INGREDIENTS Zutaten haben.")
+            FoodParseResult.Invalid(tr("Eine Mahlzeit darf höchstens $MAX_INGREDIENTS Zutaten haben.", "A meal can have at most $MAX_INGREDIENTS ingredients."))
         else -> FoodParseResult.Valid(ingredients)
     }
 }

@@ -1,5 +1,6 @@
 package com.example.fitnesstracker.ui.weight
 
+import com.example.fitnesstracker.i18n.tr
 import com.example.fitnesstracker.ui.chart.chartPan
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -187,7 +188,7 @@ fun WeightScreen(
                 .padding(top = 16.dp, bottom = 12.dp)
         ) {
             Text(
-                text = "Gewicht",
+                text = tr("Gewicht", "Weight"),
                 style = MaterialTheme.typography.headlineMedium
             )
 
@@ -330,7 +331,7 @@ fun WeightScreen(
                 ) { Text("OK") }
             },
             dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("Abbrechen") }
+                TextButton(onClick = { showDatePicker = false }) { Text(tr("Abbrechen", "Cancel")) }
             }
         ) {
             DatePicker(state = pickerState)
@@ -386,9 +387,9 @@ fun WeightScreen(
 
     if (entryToDelete != null) {
         ConfirmDeleteDialog(
-            title = "Eintrag löschen?",
-            message = "Der Eintrag vom ${WeightFormat.date(entryToDelete.dateEpochDay)} " +
-                    "(${WeightFormat.weight(entryToDelete.weightKg)}) wird endgültig gelöscht.",
+            title = tr("Eintrag löschen?", "Delete entry?"),
+            message = tr("Der Eintrag vom ${WeightFormat.date(entryToDelete.dateEpochDay)} ", "The entry from ${WeightFormat.date(entryToDelete.dateEpochDay)} ") +
+                    tr("(${WeightFormat.weight(entryToDelete.weightKg)}) wird endgültig gelöscht.", "(${WeightFormat.weight(entryToDelete.weightKg)}) will be deleted permanently."),
             onConfirm = {
                 viewModel.deleteEntry(entryToDelete)
                 entryToDeleteId = null
@@ -428,9 +429,9 @@ fun WeightScreen(
 
     if (showDeleteGoal) {
         ConfirmDeleteDialog(
-            title = "Ziel entfernen?",
-            message = "Dein Zielgewicht, das Zieldatum und der bisherige Fortschritt werden gelöscht. " +
-                    "Deine Messungen bleiben erhalten.",
+            title = tr("Ziel entfernen?", "Remove goal?"),
+            message = tr("Dein Zielgewicht, das Zieldatum und der bisherige Fortschritt werden gelöscht. ", "Your target weight, target date and progress so far will be deleted. ") +
+                    tr("Deine Messungen bleiben erhalten.", "Your measurements are kept."),
             onConfirm = {
                 viewModel.deleteGoal()
                 showDeleteGoal = false
@@ -443,8 +444,8 @@ fun WeightScreen(
     // ---------- Dialoge: Zieldatum ----------
     if (showNeedGoalHint) {
         InfoMessageDialog(
-            message = "Lege zuerst ein Zielgewicht fest. Danach kannst du ein Zieldatum wählen.",
-            confirmLabel = "Zielgewicht festlegen",
+            message = tr("Lege zuerst ein Zielgewicht fest. Danach kannst du ein Zieldatum wählen.", "Set a target weight first. Then you can pick a target date."),
+            confirmLabel = tr("Zielgewicht festlegen", "Set target weight"),
             onConfirm = {
                 showNeedGoalHint = false
                 openGoalDialog()
@@ -470,7 +471,7 @@ fun WeightScreen(
                         when {
                             picked == null -> showGoalDatePicker = false
                             picked <= todayEpochDay ->
-                                dateError = "Das Zieldatum muss in der Zukunft liegen."
+                                dateError = tr("Das Zieldatum muss in der Zukunft liegen.", "The target date must be in the future.")
                             else -> {
                                 viewModel.saveGoalDate(picked)
                                 showGoalDatePicker = false
@@ -487,9 +488,9 @@ fun WeightScreen(
                                 viewModel.saveGoalDate(null)
                                 showGoalDatePicker = false
                             }
-                        ) { Text("Entfernen", color = MaterialTheme.colorScheme.error) }
+                        ) { Text(tr("Entfernen", "Remove"), color = MaterialTheme.colorScheme.error) }
                     }
-                    TextButton(onClick = { showGoalDatePicker = false }) { Text("Abbrechen") }
+                    TextButton(onClick = { showGoalDatePicker = false }) { Text(tr("Abbrechen", "Cancel")) }
                 }
             }
         ) {

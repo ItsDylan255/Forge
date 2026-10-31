@@ -32,12 +32,13 @@ import com.example.fitnesstracker.domain.gym.SetSide
 import com.example.fitnesstracker.domain.gym.WorkoutSessionData
 import com.example.fitnesstracker.domain.gym.WorkoutSetData
 import com.example.fitnesstracker.domain.gym.toData
+import com.example.fitnesstracker.i18n.L10n
+import com.example.fitnesstracker.i18n.tr
 import com.example.fitnesstracker.ui.weight.ForgeCard
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 
-private val shortDate: DateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.", Locale.GERMANY)
+private val shortDate: DateTimeFormatter get() = DateTimeFormatter.ofPattern(tr("dd.MM.", "dd/MM"), L10n.locale)
 
 // ------------------------------------------------------------
 // Tab "Verlauf": Volumen-Diagramm + Liste vergangener Einheiten
@@ -54,7 +55,7 @@ internal fun HistoryTab(
     var mode by rememberSaveable { mutableStateOf(0) } // 0 = pro Woche, 1 = pro Training
 
     if (sessions.isEmpty()) {
-        EmptyHint("Noch kein beendetes Training. Starte eine Routine, dann erscheint es hier.")
+        EmptyHint(tr("Noch kein beendetes Training. Starte eine Routine, dann erscheint es hier.", "No finished workouts yet. Start a routine and it shows up here."))
         return
     }
 
@@ -72,7 +73,7 @@ internal fun HistoryTab(
     }
 
     GymTabs(
-        labels = listOf("Pro Woche", "Pro Training"),
+        labels = listOf(tr("Pro Woche", "Per week"), tr("Pro Training", "Per workout")),
         selected = mode,
         onSelect = { mode = it }
     )
@@ -84,13 +85,13 @@ internal fun HistoryTab(
     }
 
     Text(
-        text = "Volumen = Gewicht × Wiederholungen",
+        text = tr("Volumen = Gewicht × Wiederholungen", "Volume = weight × reps"),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 6.dp)
     )
 
-    GroupLabel("Trainings")
+    GroupLabel(tr("Trainings", "Workouts"))
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         sessions.forEach { session ->
@@ -120,7 +121,7 @@ internal fun HistoryTab(
                         Text(
                             text = listOfNotNull(
                                 summary.durationMillis?.let { GymFormat.duration(it) },
-                                "${summary.setCount} Sätze"
+                                tr("${summary.setCount} Sätze", "${summary.setCount} sets")
                             ).joinToString(" · "),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -142,12 +143,12 @@ internal fun ProgressTab(
     onOpen: (exerciseId: Long) -> Unit
 ) {
     if (bests.isEmpty()) {
-        EmptyHint("Sobald du ein Training beendet hast, siehst du hier deine Bestleistungen.")
+        EmptyHint(tr("Sobald du ein Training beendet hast, siehst du hier deine Bestleistungen.", "Once you finish a workout, your personal bests show up here."))
         return
     }
 
     Text(
-        text = "Tippe eine Übung an, um den Verlauf zu sehen.",
+        text = tr("Tippe eine Übung an, um den Verlauf zu sehen.", "Tap an exercise to see its history."),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -188,8 +189,8 @@ internal fun ProgressTab(
 
 private fun sideSuffix(code: Int): String = when (SetSide.fromCode(code)) {
     SetSide.BOTH -> ""
-    SetSide.RIGHT -> " \u00B7 Rechts"
-    SetSide.LEFT -> " \u00B7 Links"
+    SetSide.RIGHT -> tr(" \u00B7 Rechts", " · Right")
+    SetSide.LEFT -> tr(" \u00B7 Links", " · Left")
 }
 
 @Composable
@@ -223,7 +224,7 @@ fun SessionDetailScreen(
 
     GymPage {
         GymHeader(
-            title = if (isSummary) "Workout beendet" else session.routineName,
+            title = if (isSummary) tr("Workout beendet", "Workout finished") else session.routineName,
             onBack = if (isSummary) null else onClose
         )
 
@@ -238,12 +239,12 @@ fun SessionDetailScreen(
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             StatBox(
-                label = "Dauer",
+                label = tr("Dauer", "Duration"),
                 value = summary.durationMillis?.let { GymFormat.duration(it) } ?: "—",
                 modifier = Modifier.weight(1f)
             )
             StatBox(
-                label = "Volumen",
+                label = tr("Volumen", "Volume"),
                 value = GymFormat.volume(summary.totalVolumeKg),
                 modifier = Modifier.weight(1f)
             )
@@ -253,19 +254,19 @@ fun SessionDetailScreen(
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             StatBox(
-                label = "Übungen",
+                label = tr("Übungen", "Exercises"),
                 value = summary.exerciseCount.toString(),
                 modifier = Modifier.weight(1f)
             )
             StatBox(
-                label = "Sätze",
+                label = tr("Sätze", "Sets"),
                 value = summary.setCount.toString(),
                 modifier = Modifier.weight(1f)
             )
         }
 
         if (newBests.isNotEmpty()) {
-            GroupLabel("Neue Bestleistungen")
+            GroupLabel(tr("Neue Bestleistungen", "New personal bests"))
 
             ForgeCard(modifier = Modifier.fillMaxWidth()) {
                 Column(
@@ -275,7 +276,7 @@ fun SessionDetailScreen(
                     newBests.forEach { best ->
                         Text(
                             text = "${best.exerciseName}: ${GymFormat.metric(best.kind, best.weightKg)} " +
-                                    "(vorher ${GymFormat.metric(best.kind, best.previousKg)})",
+                                    tr("(vorher ${GymFormat.metric(best.kind, best.previousKg)})", "(before ${GymFormat.metric(best.kind, best.previousKg)})"),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
@@ -283,10 +284,10 @@ fun SessionDetailScreen(
             }
         }
 
-        GroupLabel("Sätze")
+        GroupLabel(tr("Sätze", "Sets"))
 
         if (groups.isEmpty()) {
-            EmptyHint("In diesem Training wurden keine Sätze gespeichert.")
+            EmptyHint(tr("In diesem Training wurden keine Sätze gespeichert.", "No sets were saved in this workout."))
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -327,7 +328,7 @@ fun SessionDetailScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
-                                    text = "Satz $number${sideSuffix(gymSet.side)}",
+                                    text = tr("Satz $number${sideSuffix(gymSet.side)}", "Set $number${sideSuffix(gymSet.side)}"),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -345,19 +346,19 @@ fun SessionDetailScreen(
         Spacer(modifier = Modifier.height(20.dp))
 
         if (isSummary) {
-            Button(onClick = onClose, modifier = Modifier.fillMaxWidth()) { Text("Fertig") }
+            Button(onClick = onClose, modifier = Modifier.fillMaxWidth()) { Text(tr("Fertig", "Done")) }
         } else {
             TextButton(onClick = { showDelete = true }, modifier = Modifier.fillMaxWidth()) {
-                Text("Training löschen", color = MaterialTheme.colorScheme.error)
+                Text(tr("Training löschen", "Delete workout"), color = MaterialTheme.colorScheme.error)
             }
         }
     }
 
     if (showDelete) {
         ConfirmDialog(
-            title = "Training löschen?",
-            message = "Das Training und alle Sätze werden endgültig gelöscht.",
-            confirmLabel = "Löschen",
+            title = tr("Training löschen?", "Delete workout?"),
+            message = tr("Das Training und alle Sätze werden endgültig gelöscht.", "The workout and all its sets will be deleted permanently."),
+            confirmLabel = tr("Löschen", "Delete"),
             onConfirm = {
                 showDelete = false
                 viewModel.deleteSession(sessionId)
@@ -396,19 +397,19 @@ fun ExerciseProgressScreen(
     var showTable by rememberSaveable { mutableStateOf(false) }
 
     GymPage {
-        GymHeader(title = best?.exerciseName ?: "Übung", onBack = onBack)
+        GymHeader(title = best?.exerciseName ?: tr("Übung", "Exercise"), onBack = onBack)
 
         Spacer(modifier = Modifier.height(16.dp))
 
         if (best != null) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 StatBox(
-                    label = "Bestleistung",
+                    label = tr("Bestleistung", "Personal best"),
                     value = GymFormat.setText(best.kind, best.bestWeightKg, best.repsAtBest),
                     modifier = Modifier.weight(1f)
                 )
                 StatBox(
-                    label = "Trainingstage",
+                    label = tr("Trainingstage", "Workout days"),
                     value = points.size.toString(),
                     modifier = Modifier.weight(1f)
                 )
@@ -417,13 +418,13 @@ fun ExerciseProgressScreen(
             oneRepMax?.let { orm ->
                 Spacer(modifier = Modifier.height(8.dp))
                 StatBox(
-                    label = "Geschätztes 1RM ›",
+                    label = tr("Geschätztes 1RM ›", "Estimated 1RM ›"),
                     value = GymFormat.kg(OneRepMax.roundToPlate(orm.estimateKg)),
                     modifier = Modifier.fillMaxWidth(),
                     onClick = { showTable = true }
                 )
                 Text(
-                    text = "Berechnet aus ${GymFormat.setText(orm.weightKg, orm.reps)} am ${GymFormat.date(orm.dateEpochDay)}",
+                    text = tr("Berechnet aus ${GymFormat.setText(orm.weightKg, orm.reps)} am ${GymFormat.date(orm.dateEpochDay)}", "Calculated from ${GymFormat.setText(orm.weightKg, orm.reps)} on ${GymFormat.date(orm.dateEpochDay)}"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp)
@@ -435,7 +436,7 @@ fun ExerciseProgressScreen(
 
         if (oneRepMaxPoints.size >= 2) {
             GymTabs(
-                labels = listOf("Gesamt", "Geschätztes 1RM"),
+                labels = listOf(tr("Gesamt", "Total"), tr("Geschätztes 1RM", "Estimated 1RM")),
                 selected = chartMode,
                 onSelect = { chartMode = it }
             )
@@ -444,7 +445,7 @@ fun ExerciseProgressScreen(
         val showOneRepMax = chartMode == 1 && oneRepMaxPoints.size >= 2
 
         Text(
-            text = if (showOneRepMax) "GESCHÄTZTES 1RM (KG)" else GymFormat.totalLabel(totals.metric),
+            text = if (showOneRepMax) tr("GESCHÄTZTES 1RM (KG)", "ESTIMATED 1RM (KG)") else GymFormat.totalLabel(totals.metric),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -468,10 +469,10 @@ fun ExerciseProgressScreen(
                 )
             }
         } else {
-            EmptyHint("Für das Diagramm brauchst du mindestens zwei Trainings mit dieser Übung.")
+            EmptyHint(tr("Für das Diagramm brauchst du mindestens zwei Trainings mit dieser Übung.", "The chart needs at least two workouts with this exercise."))
         }
 
-        GroupLabel("Pro Training")
+        GroupLabel(tr("Pro Training", "Per workout"))
 
         // Neueste zuerst. Das Training davor steht in der Liste direkt dahinter.
         val newestFirst = points.reversed()
@@ -493,7 +494,7 @@ fun ExerciseProgressScreen(
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             Text(
-                                text = "${point.setCount} Sätze",
+                                text = tr("${point.setCount} Sätze", "${point.setCount} sets"),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -533,7 +534,7 @@ fun ExerciseProgressScreen(
 private fun OneRepMaxDialog(oneRepMaxKg: Double, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Geschätztes 1RM: ${GymFormat.kg(OneRepMax.roundToPlate(oneRepMaxKg))}") },
+        title = { Text(tr("Geschätztes 1RM: ${GymFormat.kg(OneRepMax.roundToPlate(oneRepMaxKg))}", "Estimated 1RM: ${GymFormat.kg(OneRepMax.roundToPlate(oneRepMaxKg))}")) },
         text = {
             Column {
                 OneRepMax.table(oneRepMaxKg).forEach { row ->
@@ -546,7 +547,7 @@ private fun OneRepMaxDialog(oneRepMaxKg: Double, onDismiss: () -> Unit) {
                         Text("${row.percent} %", style = MaterialTheme.typography.bodyMedium)
                         Text(GymFormat.kg(row.weightKg), style = MaterialTheme.typography.titleMedium)
                         Text(
-                            text = if (row.reps == 1) "1 Wdh." else "~${row.reps} Wdh.",
+                            text = if (row.reps == 1) tr("1 Wdh.", "1 rep") else tr("~${row.reps} Wdh.", "~${row.reps} reps"),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -554,13 +555,13 @@ private fun OneRepMaxDialog(oneRepMaxKg: Double, onDismiss: () -> Unit) {
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Schätzung nach Epley aus deinen Sätzen mit bis zu 10 Wiederholungen. " +
-                            "Kein Test nötig, aber nur ein Richtwert.",
+                    text = tr("Schätzung nach Epley aus deinen Sätzen mit bis zu 10 Wiederholungen. ", "Epley estimate from your sets with up to 10 reps. ") +
+                            tr("Kein Test nötig, aber nur ein Richtwert.", "No max test needed, but only a guideline."),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Schließen") } }
+        confirmButton = { TextButton(onClick = onDismiss) { Text(tr("Schließen", "Close")) } }
     )
 }

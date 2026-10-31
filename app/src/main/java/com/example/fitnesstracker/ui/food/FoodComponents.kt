@@ -43,6 +43,7 @@ import com.example.fitnesstracker.domain.food.FoodParseResult
 import com.example.fitnesstracker.domain.food.Macros
 import com.example.fitnesstracker.domain.food.PortionData
 import com.example.fitnesstracker.domain.food.ServingInputParser
+import com.example.fitnesstracker.i18n.tr
 
 /** Kurzbeschreibung eines Lebensmittels: "52 kcal · P 0,3 g · K 14,0 g · F 0,2 g" (pro 100 g). */
 internal fun FoodItem.per100gText(): String =
@@ -102,11 +103,11 @@ internal fun FoodEditDialog(
             is FoodParseResult.Valid -> r.value
             is FoodParseResult.Invalid -> { localError = r.message; return }
         }
-        val c = when (val r = FoodInputParser.parseMacro(carbs, "Kohlenhydrate")) {
+        val c = when (val r = FoodInputParser.parseMacro(carbs, tr("Kohlenhydrate", "Carbs"))) {
             is FoodParseResult.Valid -> r.value
             is FoodParseResult.Invalid -> { localError = r.message; return }
         }
-        val f = when (val r = FoodInputParser.parseMacro(fat, "Fett")) {
+        val f = when (val r = FoodInputParser.parseMacro(fat, tr("Fett", "Fat"))) {
             is FoodParseResult.Valid -> r.value
             is FoodParseResult.Invalid -> { localError = r.message; return }
         }
@@ -153,7 +154,7 @@ internal fun FoodEditDialog(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Werte pro 100 g",
+                    text = tr("Werte pro 100 g", "Values per 100 g"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -164,7 +165,7 @@ internal fun FoodEditDialog(
                     value = kcal,
                     onValueChange = { kcal = it; localError = null },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Kalorien (kcal)") },
+                    label = { Text(tr("Kalorien (kcal)", "Calories (kcal)")) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
@@ -184,7 +185,7 @@ internal fun FoodEditDialog(
                         value = carbs,
                         onValueChange = { carbs = it; localError = null },
                         modifier = Modifier.weight(1f),
-                        label = { Text("Kohlenh.") },
+                        label = { Text(tr("Kohlenh.", "Carbs")) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                     )
@@ -192,7 +193,7 @@ internal fun FoodEditDialog(
                         value = fat,
                         onValueChange = { fat = it; localError = null },
                         modifier = Modifier.weight(1f),
-                        label = { Text("Fett") },
+                        label = { Text(tr("Fett", "Fat")) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                     )
@@ -202,12 +203,12 @@ internal fun FoodEditDialog(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "Portionen",
+                    text = tr("Portionen", "Servings"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "Zum Beispiel \u201EScheibe\u201C mit 30 g. Beim Eintragen w\u00E4hlst du dann die Anzahl.",
+                    text = tr("Zum Beispiel \u201EScheibe\u201C mit 30 g. Beim Eintragen w\u00E4hlst du dann die Anzahl.", "For example “Slice” with 30 g. When logging, you then pick the amount."),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -281,7 +282,7 @@ internal fun FoodEditDialog(
                     }
 
                     TextButton(onClick = { portions.add(PortionDraft("", "")) }) {
-                        Text("+ Eigene Portion")
+                        Text(tr("+ Eigene Portion", "+ Custom serving"))
                     }
                 }
 
@@ -297,13 +298,13 @@ internal fun FoodEditDialog(
                 if (onDelete != null) {
                     Spacer(modifier = Modifier.height(8.dp))
                     TextButton(onClick = onDelete) {
-                        Text("Lebensmittel l\u00F6schen", color = MaterialTheme.colorScheme.error)
+                        Text(tr("Lebensmittel l\u00F6schen", "Delete food"), color = MaterialTheme.colorScheme.error)
                     }
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { submit() }) { Text("Speichern") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }
+        confirmButton = { TextButton(onClick = { submit() }) { Text(tr("Speichern", "Save")) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Abbrechen", "Cancel")) } }
     )
 }
 
@@ -332,7 +333,7 @@ internal fun FoodEntryDialog(
                     value = gramsInput,
                     onValueChange = { gramsInput = it; error = null },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Menge in Gramm") },
+                    label = { Text(tr("Menge in Gramm", "Amount in grams")) },
                     singleLine = true,
                     isError = error != null,
                     supportingText = error?.let { message -> { Text(message) } },
@@ -357,7 +358,7 @@ internal fun FoodEntryDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 OutlinedButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) {
-                    Text("Eintrag l\u00F6schen", color = MaterialTheme.colorScheme.error)
+                    Text(tr("Eintrag l\u00F6schen", "Delete entry"), color = MaterialTheme.colorScheme.error)
                 }
             }
         },
@@ -369,8 +370,8 @@ internal fun FoodEntryDialog(
                         is FoodParseResult.Invalid -> error = result.message
                     }
                 }
-            ) { Text("Speichern") }
+            ) { Text(tr("Speichern", "Save")) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Abbrechen", "Cancel")) } }
     )
 }

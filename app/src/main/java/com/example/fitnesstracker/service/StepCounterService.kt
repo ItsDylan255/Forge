@@ -26,6 +26,7 @@ import com.example.fitnesstracker.domain.steps.SampleData
 import com.example.fitnesstracker.domain.steps.StepCalculator
 import com.example.fitnesstracker.domain.steps.StepFormat
 import com.example.fitnesstracker.domain.steps.StepSamples
+import com.example.fitnesstracker.i18n.tr
 import java.time.LocalDate
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -114,8 +115,8 @@ class StepCounterService : Service() {
         repository = StepRepository(database.stepEntryDao(), database.stepSampleDao(), prefs)
 
         getSystemService(NotificationManager::class.java).createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "Schritte", NotificationManager.IMPORTANCE_MIN).apply {
-                description = "Zählt deine Schritte im Hintergrund"
+            NotificationChannel(CHANNEL_ID, tr("Schritte", "Steps"), NotificationManager.IMPORTANCE_MIN).apply {
+                description = tr("Zählt deine Schritte im Hintergrund", "Counts your steps in the background")
                 setShowBadge(false)
             }
         )
@@ -187,8 +188,8 @@ class StepCounterService : Service() {
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_steps)
-            .setContentTitle("${StepFormat.steps(progress.steps)} Schritte heute")
-            .setContentText("Ziel ${StepFormat.steps(progress.goal)} \u00B7 ${StepFormat.percent(progress.percent)}")
+            .setContentTitle(tr("${StepFormat.steps(progress.steps)} Schritte heute", "${StepFormat.steps(progress.steps)} steps today"))
+            .setContentText(tr("Ziel ${StepFormat.steps(progress.goal)} \u00B7 ${StepFormat.percent(progress.percent)}", "Goal ${StepFormat.steps(progress.goal)} · ${StepFormat.percent(progress.percent)}"))
             .setProgress(100, progress.percent.coerceIn(0, 100), false)
             .setContentIntent(open)
             .setOngoing(true)
