@@ -48,7 +48,7 @@ import com.example.fitnesstracker.i18n.tr
 /** Kurzbeschreibung eines Lebensmittels: "52 kcal · P 0,3 g · K 14,0 g · F 0,2 g" (pro 100 g). */
 internal fun FoodItem.per100gText(): String =
     "${FoodFormat.kcal(caloriesPer100g)} \u00B7 P ${FoodFormat.macro(proteinPer100g)} \u00B7 " +
-            "K ${FoodFormat.macro(carbsPer100g)} \u00B7 F ${FoodFormat.macro(fatPer100g)}"
+            "${tr("K", "C")} ${FoodFormat.macro(carbsPer100g)} \u00B7 F ${FoodFormat.macro(fatPer100g)}"
 
 private fun FoodItem.per100g() = Macros(
     kcal = caloriesPer100g,
@@ -348,7 +348,7 @@ internal fun FoodEntryDialog(
                     )
                     Text(
                         text = "P ${FoodFormat.macro(preview.protein)} \u00B7 " +
-                                "K ${FoodFormat.macro(preview.carbs)} \u00B7 " +
+                                "${tr("K", "C")} ${FoodFormat.macro(preview.carbs)} \u00B7 " +
                                 "F ${FoodFormat.macro(preview.fat)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant

@@ -103,7 +103,7 @@ fun CalorieGoalCard(
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "P ${target.macros.proteinG} g \u00B7 K ${target.macros.carbsG} g \u00B7 F ${target.macros.fatG} g",
+                        text = "P ${target.macros.proteinG} g \u00B7 ${tr("K", "C")} ${target.macros.carbsG} g \u00B7 F ${target.macros.fatG} g",
                         style = MaterialTheme.typography.titleMedium
                     )
                     Text(

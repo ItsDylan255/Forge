@@ -259,7 +259,7 @@ internal fun MealEditDialog(
                     )
                     Text(
                         text = "P ${FoodFormat.macro(totals.protein)} \u00B7 " +
-                                "K ${FoodFormat.macro(totals.carbs)} \u00B7 " +
+                                "${tr("K", "C")} ${FoodFormat.macro(totals.carbs)} \u00B7 " +
                                 "F ${FoodFormat.macro(totals.fat)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant

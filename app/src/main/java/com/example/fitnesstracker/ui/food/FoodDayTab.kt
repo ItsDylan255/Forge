@@ -223,7 +223,7 @@ internal fun FoodDayTab(
                         Text(
                             text = "${amountText(entry)} \u00B7 " +
                                     "P ${FoodFormat.macro(entry.macros.protein)} \u00B7 " +
-                                    "K ${FoodFormat.macro(entry.macros.carbs)} \u00B7 " +
+                                    "${tr("K", "C")} ${FoodFormat.macro(entry.macros.carbs)} \u00B7 " +
                                     "F ${FoodFormat.macro(entry.macros.fat)}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
