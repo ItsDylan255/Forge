@@ -19,9 +19,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
+import androidx.compose.material.icons.automirrored.filled.TrendingFlat
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -50,7 +56,6 @@ import com.example.fitnesstracker.domain.gym.GymCalculator
 import com.example.fitnesstracker.domain.gym.GymDefaults
 import com.example.fitnesstracker.domain.gym.LastPerformance
 import com.example.fitnesstracker.domain.gym.LoggedSet
-import com.example.fitnesstracker.domain.gym.OneRepMax
 import com.example.fitnesstracker.domain.gym.PlanItem
 import com.example.fitnesstracker.domain.gym.ProgressionHint
 import com.example.fitnesstracker.domain.gym.SetSide
@@ -242,11 +247,6 @@ fun WorkoutScreen(
                         val sessionData = allSessions.map { it.toData() }
                         val setData = allSets.map { it.toData() }
                         val last = GymCalculator.lastPerformance(exerciseId, current.id, sessionData, setData)
-                        val record = if (kind == ExerciseKind.REPS) {
-                            OneRepMax.newRecord(exerciseId, current.id, sessionData, setData)
-                        } else {
-                            null
-                        }
                         val hint = if (planned != null && last != null) {
                             // Einseitige Übungen haben pro Satz zwei Einträge (rechts und links)
                             val setsPerRound = if (planned.unilateral) 2 else 1
@@ -268,7 +268,6 @@ fun WorkoutScreen(
                             lastSet = lastSet,
                             last = last,
                             hint = hint,
-                            record = record,
                             restActive = restTimer != null,
                             onAddSet = { weightKg, reps, side, restSeconds ->
                                 viewModel.addSet(current.id, exerciseId, name, weightKg, reps, side)
@@ -475,8 +474,6 @@ private fun ExerciseBlock(
     lastSet: GymSet?,
     last: LastPerformance?,
     hint: ProgressionHint,
-    /** Neues geschätztes 1RM in diesem Training (neu, vorher), sonst null. */
-    record: Pair<Double, Double>?,
     restActive: Boolean,
     onAddSet: (weightKg: Double, reps: Int, side: SetSide, restSeconds: Int) -> Unit,
     onDeleteSet: (Long) -> Unit
@@ -492,6 +489,24 @@ private fun ExerciseBlock(
         mutableStateOf(lastSet?.reps?.toString() ?: planned?.repsMin?.toString() ?: "")
     }
     var error by rememberSaveable(exerciseId) { mutableStateOf<String?>(null) }
+
+    // Offener Satz (Nummer und Seite): Werte kommen aus demselben Satz des letzten Trainings
+    val openSet: Pair<Int, SetSide>? = if (planned != null) {
+        activeSlot?.takeIf { it.exerciseId == exerciseId }?.let { it.setNumber to it.side }
+    } else {
+        (sets.size + 1) to SetSide.BOTH
+    }
+    var prefilledFor by rememberSaveable(exerciseId) { mutableStateOf<String?>(null) }
+    LaunchedEffect(openSet) {
+        val (number, side) = openSet ?: return@LaunchedEffect
+        val key = "$number-${side.code}"
+        if (prefilledFor == key) return@LaunchedEffect
+        prefilledFor = key
+        val previous = last?.sets?.filter { it.side == side }?.getOrNull(number - 1) ?: return@LaunchedEffect
+        weightInput = if (kind == ExerciseKind.REPS || previous.weightKg != 0.0) GymFormat.number(previous.weightKg) else ""
+        repsInput = previous.reps.toString()
+        error = null
+    }
 
     // Stoppuhr für Zeitübungen: 0 = aus, sonst Startzeit in Millisekunden
     var stopwatchStart by rememberSaveable(exerciseId) { mutableStateOf(0L) }
@@ -593,11 +608,20 @@ private fun ExerciseBlock(
                     .padding(12.dp)
             ) {
                 if (last != null) {
-                    Text(
-                        text = tr("Letztes Training \u00B7 ${dateText(last.dateEpochDay)}", "Last workout · ${dateText(last.dateEpochDay)}"),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = muted
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = tr("Letztes Training \u00B7 ${dateText(last.dateEpochDay)}", "Last workout · ${dateText(last.dateEpochDay)}"),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = muted,
+                            modifier = Modifier.weight(1f)
+                        )
+                        // Progression als Symbol: hoch = steigern, waagerecht = halten, runter = leichter
+                        if (planned != null) ProgressionIcon(hint)
+                    }
                     Spacer(modifier = Modifier.height(4.dp))
                     val counters = mutableMapOf<SetSide, Int>()
                     last.sets.forEach { s ->
@@ -615,27 +639,6 @@ private fun ExerciseBlock(
                         color = muted
                     )
                 }
-            }
-
-            // ---------- Neuer Rekord (geschätztes 1RM) ----------
-            record?.let { (now, before) ->
-                Text(
-                    text = tr("Neuer Rekord! Geschätztes 1RM ${GymFormat.kg(OneRepMax.roundToPlate(now))} ", "New record! Estimated 1RM ${GymFormat.kg(OneRepMax.roundToPlate(now))} ") +
-                            tr("(vorher ${GymFormat.kg(OneRepMax.roundToPlate(before))})", "(before ${GymFormat.kg(OneRepMax.roundToPlate(before))})"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-            }
-
-            // ---------- Dezenter Hinweis zur Progression ----------
-            GymFormat.progressionText(kind, hint, planned?.repsMin ?: 0, planned?.repsMax ?: 0)?.let { text ->
-                Text(
-                    text = text,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = muted,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -789,4 +792,27 @@ private fun ExerciseBlock(
             }
         }
     }
+}
+
+/** Symbol zur Progression: Gewicht erhöhen, gleich lassen oder senken. */
+@Composable
+private fun ProgressionIcon(hint: ProgressionHint) {
+    val (icon, color, description) = when (hint) {
+        ProgressionHint.INCREASE -> Triple(
+            Icons.AutoMirrored.Filled.TrendingUp,
+            MaterialTheme.colorScheme.primary,
+            tr("Gewicht erhöhen", "Increase weight")
+        )
+        ProgressionHint.REDUCE -> Triple(
+            Icons.AutoMirrored.Filled.TrendingDown,
+            MaterialTheme.colorScheme.error,
+            tr("Gewicht senken", "Lower weight")
+        )
+        ProgressionHint.NONE -> Triple(
+            Icons.AutoMirrored.Filled.TrendingFlat,
+            MaterialTheme.colorScheme.onSurfaceVariant,
+            tr("Gewicht gleich lassen", "Keep weight")
+        )
+    }
+    Icon(imageVector = icon, contentDescription = description, tint = color, modifier = Modifier.size(20.dp))
 }

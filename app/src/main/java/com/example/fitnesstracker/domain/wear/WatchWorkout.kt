@@ -4,7 +4,6 @@ import com.example.fitnesstracker.domain.gym.ExerciseKind
 import com.example.fitnesstracker.domain.gym.GymCalculator
 import com.example.fitnesstracker.domain.gym.GymFormat
 import com.example.fitnesstracker.domain.gym.LoggedSet
-import com.example.fitnesstracker.domain.gym.OneRepMax
 import com.example.fitnesstracker.domain.gym.PlanItem
 import com.example.fitnesstracker.domain.gym.SetSide
 import com.example.fitnesstracker.domain.gym.WorkoutFlow
@@ -131,14 +130,6 @@ object WatchWorkout {
         }
         val lastText = lastSet?.let { tr("Letztes Mal: ", "Last time: ") + GymFormat.setText(it.kind, it.weightKg, it.reps) }
 
-        // Rekord bei irgendeiner Übung der Seite (im Superset zählen beide)
-        val recordText = page.firstNotNullOfOrNull { item ->
-            if ((kinds[item.exerciseId] ?: ExerciseKind.REPS) != ExerciseKind.REPS) return@firstNotNullOfOrNull null
-            OneRepMax.newRecord(item.exerciseId, sessionId, sessions, sets)?.let { (now, _) ->
-                tr("Neuer Rekord! 1RM ${GymFormat.kg(OneRepMax.roundToPlate(now))}", "New record! 1RM ${GymFormat.kg(OneRepMax.roundToPlate(now))}")
-            }
-        }
-
         return WatchWorkoutState(
             sessionId = sessionId,
             routineName = routineName,
@@ -149,7 +140,7 @@ object WatchWorkout {
             lastText = lastText,
             progressText = tr("Übung ${pageIndex + 1} von ${pages.size}", "Exercise ${pageIndex + 1} of ${pages.size}"),
             superset = page.size > 1,
-            recordText = recordText,
+            recordText = null,
             rest = rest
         )
     }

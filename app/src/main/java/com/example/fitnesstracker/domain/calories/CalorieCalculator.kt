@@ -47,10 +47,12 @@ object CalorieCalculator {
         profile: CalorieProfile,
         currentKg: Double,
         goal: CalorieGoalInput?,
-        todayEpochDay: Long
+        todayEpochDay: Long,
+        /** Fester Abzug vom berechneten Gesamtumsatz in kcal (Einstellung, 0 = keiner). */
+        reductionKcal: Int = 0
     ): CalorieTarget {
         val bmr = bmr(currentKg, profile.heightCm, profile.ageYears, profile.sex)
-        val tdee = tdee(bmr, profile.activity)
+        val tdee = max(0.0, tdee(bmr, profile.activity) - reductionKcal.coerceAtLeast(0))
 
         fun result(
             kcal: Double,

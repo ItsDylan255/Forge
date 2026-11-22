@@ -66,7 +66,11 @@ import java.time.format.TextStyle as JavaTextStyle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.example.fitnesstracker.data.export.DataExporter
+import com.example.fitnesstracker.data.local.CaloriePreferences
 import com.example.fitnesstracker.data.local.DatabaseProvider
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.text.input.KeyboardType
 import com.example.fitnesstracker.domain.export.DataExport
 import com.example.fitnesstracker.data.local.PhotoReminderPreferences
 import com.example.fitnesstracker.data.local.ReminderPreferences
@@ -103,6 +107,7 @@ fun SettingsScreen(
 ) {
     val profile by calorieViewModel.profile.collectAsStateWithLifecycle()
     val target by calorieViewModel.target.collectAsStateWithLifecycle()
+    val reduction by calorieViewModel.reduction.collectAsStateWithLifecycle()
 
     var showProfile by rememberSaveable { mutableStateOf(false) }
 
@@ -160,6 +165,13 @@ fun SettingsScreen(
 
         GroupLabel(tr("Berechnung", "Calculation"))
 
+        CalorieReductionCard(
+            reduction = reduction,
+            onSave = { calorieViewModel.setReduction(it) }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
         CalorieGoalCard(
             hasProfile = profile != null,
             target = target,
@@ -181,6 +193,55 @@ fun SettingsScreen(
             },
             onDismiss = { showProfile = false }
         )
+    }
+}
+
+/** Fester Abzug vom berechneten Verbrauch, z. B. 100 kcal. */
+@Composable
+private fun CalorieReductionCard(reduction: Int, onSave: (Int) -> Unit) {
+    var text by rememberSaveable(reduction) { mutableStateOf(if (reduction == 0) "" else reduction.toString()) }
+    val parsed = text.trim().removeSuffix("kcal").trim().let { if (it.isEmpty()) 0 else it.toIntOrNull() }
+    val valid = parsed != null && parsed in 0..CaloriePreferences.MAX_REDUCTION
+
+    ForgeCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(
+                text = tr("Verbrauch senken", "Lower expenditure"),
+                style = MaterialTheme.typography.titleSmall
+            )
+            Text(
+                text = tr(
+                    "Dieser Wert wird nach der Berechnung immer vom Gesamtumsatz abgezogen. Dein Tagesziel sinkt um denselben Wert.",
+                    "This value is always subtracted from your TDEE after the calculation. Your daily goal drops by the same amount."
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it.filter { c -> c.isDigit() }.take(4) },
+                    label = { Text("kcal") },
+                    placeholder = { Text("0") },
+                    singleLine = true,
+                    isError = !valid,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(
+                    onClick = { parsed?.let(onSave) },
+                    enabled = valid && parsed != reduction
+                ) { Text(tr("Speichern", "Save")) }
+            }
+            if (!valid) {
+                Text(
+                    text = tr("0 bis ${CaloriePreferences.MAX_REDUCTION} kcal", "0 to ${CaloriePreferences.MAX_REDUCTION} kcal"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
     }
 }
 

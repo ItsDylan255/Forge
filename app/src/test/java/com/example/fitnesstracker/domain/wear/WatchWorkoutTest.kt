@@ -92,9 +92,9 @@ class WatchWorkoutTest {
         assertFalse(state(emptyList()).superset)
     }
 
-    @Test fun newRecordIsShown() {
+    @Test fun newRecordIsNotShown() {
         val s = state(listOf(set(1, 1, 80.0, 8, 1), set(2, 1, 85.0, 8, 2)))
-        assertEquals("Neuer Rekord! 1RM 107,5 kg", s.recordText)
+        assertNull(s.recordText)
     }
 
     @Test fun emptyWorkoutHasNoExercise() {

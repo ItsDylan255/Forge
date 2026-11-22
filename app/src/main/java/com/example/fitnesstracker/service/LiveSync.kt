@@ -1,6 +1,7 @@
 package com.example.fitnesstracker.service
 
 import android.content.Context
+import com.example.fitnesstracker.data.local.CaloriePreferences
 import com.example.fitnesstracker.data.local.DatabaseProvider
 import com.example.fitnesstracker.data.local.StepPreferences
 import com.example.fitnesstracker.domain.calories.CalorieCalculator
@@ -114,7 +115,7 @@ object LiveSync {
         val db = DatabaseProvider.getDatabase(app)
         val stepPrefs = StepPreferences(app)
 
-        L10n.englishFlow.flatMapLatest {
+        combine(L10n.englishFlow, CaloriePreferences.reductionFlow(app)) { _, r -> r }.flatMapLatest { reduction ->
             combine(
                 db.stepEntryDao().observeAll(),
                 db.weightEntryDao().getAllEntries(),
@@ -129,7 +130,7 @@ object LiveSync {
                 val target = profile?.toCalorieProfile()?.let { p ->
                     latestWeight?.let { current ->
                         val input = goal?.let { CalorieGoalInput(it.startWeightKg, it.targetWeightKg, it.targetDateEpochDay) }
-                        CalorieCalculator.calculate(p, current, input, today)
+                        CalorieCalculator.calculate(p, current, input, today, reduction)
                     }
                 }
 

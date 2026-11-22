@@ -5,6 +5,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.fitnesstracker.data.local.CaloriePreferences
 import com.example.fitnesstracker.data.local.DatabaseProvider
 import com.example.fitnesstracker.data.local.PhotoReminderPreferences
 import com.example.fitnesstracker.data.local.ProgressPhoto
@@ -114,7 +115,7 @@ class PhotoViewModel(application: Application) : AndroidViewModel(application) {
         val kcalTarget = profile?.toCalorieProfile()?.let { p ->
             latestWeight?.let { current ->
                 val input = goal?.let { CalorieGoalInput(it.startWeightKg, it.targetWeightKg, it.targetDateEpochDay) }
-                CalorieCalculator.calculate(p, current, input, today).targetKcal
+                CalorieCalculator.calculate(p, current, input, today, CaloriePreferences.getReduction(getApplication())).targetKcal
             }
         }
 

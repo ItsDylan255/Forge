@@ -63,7 +63,7 @@ class WeightReminderWorker(
         )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_stat_workout)
+            .setSmallIcon(R.drawable.ic_stat_weight)
             .setContentTitle(tr("Gewicht eintragen", "Log weight"))
             .setContentText(tr("Du hast heute noch kein Gewicht eingetragen.", "You haven't logged your weight today."))
             .setContentIntent(open)

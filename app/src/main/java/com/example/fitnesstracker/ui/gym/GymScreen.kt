@@ -34,9 +34,6 @@ import com.example.fitnesstracker.data.local.GymRoutine
 import com.example.fitnesstracker.data.local.GymRoutineExercise
 import com.example.fitnesstracker.data.local.GymSession
 import com.example.fitnesstracker.domain.gym.GymFormat
-import com.example.fitnesstracker.domain.gym.PlanProgress
-import com.example.fitnesstracker.domain.gym.PlanProgressCalculator
-import com.example.fitnesstracker.domain.gym.PlanSessionRef
 import com.example.fitnesstracker.domain.gym.RoutinePlans
 import com.example.fitnesstracker.domain.gym.toData
 import com.example.fitnesstracker.i18n.tr
@@ -271,9 +268,6 @@ private fun RoutinesTab(
     val planRefs = plans.map { it.toRef() }
     val groups = RoutinePlans.groups(routineRefs, planRefs)
     val archive = RoutinePlans.archive(routineRefs, planRefs)
-    val planSessions = sessions.map {
-        PlanSessionRef(it.planId, it.routineId, it.routineName, it.dateEpochDay, it.startedAt)
-    }
 
     var newPlan by remember { mutableStateOf(false) }
     var renamePlan by remember { mutableStateOf<GymPlan?>(null) }
@@ -322,18 +316,6 @@ private fun RoutinesTab(
                         MenuAction(tr("Plan löschen", "Delete plan"), destructive = true) { deletePlan = plan }
                     )
                 )
-            }
-        }
-
-        if (plan != null) {
-            PlanProgressCalculator.progress(
-                planId = plan.id,
-                activeRoutineIds = group.routines.map { it.id }.toSet(),
-                sessions = planSessions,
-                today = today
-            )?.let { progress ->
-                PlanProgressLine(progress, today)
-                Spacer(modifier = Modifier.height(8.dp))
             }
         }
 
@@ -423,37 +405,6 @@ private fun RoutinesTab(
             },
             onDismiss = { deletePlan = null }
         )
-    }
-}
-
-/** „Woche 3 · 2 Durchgänge · zuletzt Leg Day 2 (gestern)“ und ein Balken für diese Woche. */
-@Composable
-private fun PlanProgressLine(progress: PlanProgress, today: Long) {
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
-
-    Text(
-        text = tr("Woche ${progress.week} · ", "Week ${progress.week} · ") +
-                (if (progress.rounds == 1) tr("1 Durchgang", "1 round") else tr("${progress.rounds} Durchgänge", "${progress.rounds} rounds")) +
-                tr(" · zuletzt ${progress.lastRoutineName} ", " · last ${progress.lastRoutineName} ") +
-                "(${PlanProgressCalculator.daysAgoText(progress.lastEpochDay, today)})",
-        style = MaterialTheme.typography.bodySmall,
-        color = muted
-    )
-
-    if (progress.routineCount > 0) {
-        Spacer(modifier = Modifier.height(6.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            LinearProgressIndicator(
-                progress = { progress.doneThisWeek.toFloat() / progress.routineCount },
-                modifier = Modifier.weight(1f)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = tr("${progress.doneThisWeek} von ${progress.routineCount} diese Woche", "${progress.doneThisWeek} of ${progress.routineCount} this week"),
-                style = MaterialTheme.typography.bodySmall,
-                color = muted
-            )
-        }
     }
 }
 

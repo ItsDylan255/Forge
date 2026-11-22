@@ -3,6 +3,7 @@ package com.example.fitnesstracker.ui.calories
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.fitnesstracker.data.local.CaloriePreferences
 import com.example.fitnesstracker.data.local.DatabaseProvider
 import com.example.fitnesstracker.domain.calories.CalorieCalculator
 import com.example.fitnesstracker.domain.calories.CalorieGoalInput
@@ -37,8 +38,9 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
     val target: StateFlow<CalorieTarget?> = combine(
         profileDao.observeProfile(),
         db.weightEntryDao().getAllEntries(),
-        db.weightGoalDao().observeGoal()
-    ) { entity, entries, goal ->
+        db.weightGoalDao().observeGoal(),
+        CaloriePreferences.reductionFlow(application)
+    ) { entity, entries, goal, reduction ->
         val p = entity?.toCalorieProfile()
         val current = entries.lastOrNull()?.weightKg
         if (p == null || current == null) {
@@ -47,9 +49,14 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
             val input = goal?.let {
                 CalorieGoalInput(it.startWeightKg, it.targetWeightKg, it.targetDateEpochDay)
             }
-            CalorieCalculator.calculate(p, current, input, LocalDate.now().toEpochDay())
+            CalorieCalculator.calculate(p, current, input, LocalDate.now().toEpochDay(), reduction)
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    /** Fester Abzug vom berechneten Verbrauch (kcal). */
+    val reduction: StateFlow<Int> = CaloriePreferences.reductionFlow(application)
+
+    fun setReduction(kcal: Int) = CaloriePreferences.setReduction(getApplication(), kcal)
 
     /** Speichert das Profil und erhält dabei das Erstellungsdatum. */
     fun saveProfile(profile: CalorieProfile) {
