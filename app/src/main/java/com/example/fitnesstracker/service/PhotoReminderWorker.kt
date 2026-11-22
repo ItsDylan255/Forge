@@ -60,7 +60,7 @@ class PhotoReminderWorker(
         )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_stat_workout)
+            .setSmallIcon(R.drawable.ic_stat_photo)
             .setContentTitle(
                 if (overdue) tr("Fortschrittsfoto überfällig", "Progress photo overdue")
                 else tr("Zeit für dein Fortschrittsfoto", "Time for your progress photo")
