@@ -48,11 +48,15 @@ object CalorieCalculator {
         currentKg: Double,
         goal: CalorieGoalInput?,
         todayEpochDay: Long,
-        /** Fester Abzug vom berechneten Gesamtumsatz in kcal (Einstellung, 0 = keiner). */
-        reductionKcal: Int = 0
+        settings: CalorieSettings = CalorieSettings()
     ): CalorieTarget {
         val bmr = bmr(currentKg, profile.heightCm, profile.ageYears, profile.sex)
-        val tdee = max(0.0, tdee(bmr, profile.activity) - reductionKcal.coerceAtLeast(0))
+        val tdee = max(0.0, tdee(bmr, profile.activity) - settings.reductionKcal.coerceAtLeast(0))
+        val maxDeficit = settings.maxDeficitKcal?.coerceAtLeast(0)?.toDouble()
+            ?: min(MAX_DEFICIT_KCAL, MAX_DEFICIT_FRACTION * tdee)
+        /** Untergrenze beim Abnehmen: höchstens [maxDeficit] unter dem Gesamtumsatz und nie unter dem BMR. */
+        val loseFloor = max(bmr, tdee - maxDeficit)
+        val gainCeiling = tdee + MAX_SURPLUS_KCAL
 
         fun result(
             kcal: Double,
@@ -71,6 +75,10 @@ object CalorieCalculator {
                 appliedDeltaKcal = abs(tdee - kcal).roundToInt(),
                 estimatedEpochDay = estimatedEpochDay
             )
+        }
+
+        if (settings.mode != DeficitMode.AUTO) {
+            return manual(settings, currentKg, goal, todayEpochDay, tdee, loseFloor, gainCeiling, ::result)
         }
 
         if (goal == null) return result(tdee, CalorieDirection.MAINTAIN, CalorieNote.NO_GOAL)
@@ -109,18 +117,72 @@ object CalorieCalculator {
         }
 
         return if (direction == CalorieDirection.LOSE) {
-            val maxDeficit = min(MAX_DEFICIT_KCAL, MAX_DEFICIT_FRACTION * tdee)
-            val floor = max(bmr, tdee - maxDeficit)
             val raw = tdee - delta
 
-            if (raw < floor) result(floor, direction, CalorieNote.TOO_TIGHT, estimateWith(floor))
+            if (raw < loseFloor) result(loseFloor, direction, CalorieNote.TOO_TIGHT, estimateWith(loseFloor))
             else result(raw, direction, CalorieNote.NONE)
         } else {
-            val ceiling = tdee + MAX_SURPLUS_KCAL
             val raw = tdee + delta
 
-            if (raw > ceiling) result(ceiling, direction, CalorieNote.TOO_TIGHT, estimateWith(ceiling))
+            if (raw > gainCeiling) result(gainCeiling, direction, CalorieNote.TOO_TIGHT, estimateWith(gainCeiling))
             else result(raw, direction, CalorieNote.NONE)
         }
+    }
+
+    /** kcal pro Tag für den gewünschten Gewichtsverlust: [percentPerWeek] % von [currentKg] pro Woche. */
+    fun kcalForPercentPerWeek(currentKg: Double, percentPerWeek: Double): Double =
+        currentKg * percentPerWeek / 100.0 * KCAL_PER_KG / 7.0
+
+    /**
+     * Manuelles Defizit (Automatik aus): feste kcal oder Prozent pro Woche, unabhängig vom Zieldatum.
+     * Ohne Gewichtsziel wird abgenommen. Bei einem Zunahme-Ziel gilt derselbe Wert als Plus.
+     * Die Grenzen (maximales Defizit, BMR, maximales Plus) gelten weiter.
+     */
+    private fun manual(
+        settings: CalorieSettings,
+        currentKg: Double,
+        goal: CalorieGoalInput?,
+        todayEpochDay: Long,
+        tdee: Double,
+        loseFloor: Double,
+        gainCeiling: Double,
+        result: (Double, CalorieDirection, CalorieNote, Long?) -> CalorieTarget
+    ): CalorieTarget {
+        val direction = if (goal == null) {
+            CalorieDirection.LOSE
+        } else {
+            val start = goal.startKg ?: currentKg
+            when {
+                abs(start - goal.targetKg) < 1e-9 -> CalorieDirection.MAINTAIN
+                start > goal.targetKg -> CalorieDirection.LOSE
+                else -> CalorieDirection.GAIN
+            }
+        }
+        if (direction == CalorieDirection.MAINTAIN) return result(tdee, direction, CalorieNote.NONE, null)
+
+        val remaining = goal?.let {
+            if (direction == CalorieDirection.LOSE) currentKg - it.targetKg else it.targetKg - currentKg
+        }
+        if (remaining != null && remaining <= 0.0) {
+            return result(tdee, CalorieDirection.MAINTAIN, CalorieNote.REACHED, null)
+        }
+
+        val delta = when (settings.mode) {
+            DeficitMode.PERCENT_PER_WEEK -> kcalForPercentPerWeek(currentKg, settings.percentPerWeek.coerceAtLeast(0.0))
+            else -> settings.fixedDeficitKcal.coerceAtLeast(0).toDouble()
+        }
+
+        val raw = if (direction == CalorieDirection.LOSE) tdee - delta else tdee + delta
+        val limited = if (direction == CalorieDirection.LOSE) max(raw, loseFloor) else min(raw, gainCeiling)
+        val note = if (abs(limited - raw) > 0.5) CalorieNote.MANUAL_CAPPED else CalorieNote.MANUAL
+
+        val applied = abs(tdee - limited)
+        val eta = if (remaining != null && applied > 0.0) {
+            val daysNeeded = ceil(remaining * KCAL_PER_KG / applied).toLong()
+            if (daysNeeded in 1..MAX_ESTIMATE_DAYS) todayEpochDay + daysNeeded else null
+        } else {
+            null
+        }
+        return result(limited, direction, note, eta)
     }
 }

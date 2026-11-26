@@ -497,14 +497,25 @@ private fun ExerciseBlock(
         (sets.size + 1) to SetSide.BOTH
     }
     var prefilledFor by rememberSaveable(exerciseId) { mutableStateOf<String?>(null) }
+    // Was zuletzt vorausgefüllt wurde. Weicht der gespeicherte Satz davon ab, gilt der neue Wert
+    // auch für die folgenden Sätze (pro Seite und getrennt für Gewicht und Wiederholungen).
+    var prefillWeight by rememberSaveable(exerciseId) { mutableStateOf<String?>(null) }
+    var prefillReps by rememberSaveable(exerciseId) { mutableStateOf<String?>(null) }
+    var weightOverrides by rememberSaveable(exerciseId) { mutableStateOf(mapOf<Int, String>()) }
+    var repsOverrides by rememberSaveable(exerciseId) { mutableStateOf(mapOf<Int, String>()) }
     LaunchedEffect(openSet) {
         val (number, side) = openSet ?: return@LaunchedEffect
         val key = "$number-${side.code}"
         if (prefilledFor == key) return@LaunchedEffect
         prefilledFor = key
-        val previous = last?.sets?.filter { it.side == side }?.getOrNull(number - 1) ?: return@LaunchedEffect
-        weightInput = if (kind == ExerciseKind.REPS || previous.weightKg != 0.0) GymFormat.number(previous.weightKg) else ""
-        repsInput = previous.reps.toString()
+        val previous = last?.sets?.filter { it.side == side }?.getOrNull(number - 1)
+        val weight = weightOverrides[side.code]
+            ?: previous?.let { if (kind == ExerciseKind.REPS || it.weightKg != 0.0) GymFormat.number(it.weightKg) else "" }
+        val reps = repsOverrides[side.code] ?: previous?.reps?.toString()
+        if (weight != null) weightInput = weight
+        if (reps != null) repsInput = reps
+        prefillWeight = weight
+        prefillReps = reps
         error = null
     }
 
@@ -547,6 +558,13 @@ private fun ExerciseBlock(
 
         error = null
         stopwatchStart = 0L
+
+        // Neuer Wert eingetragen? Dann übernehmen ihn die folgenden Sätze dieser Seite.
+        val weightText = if (kind == ExerciseKind.REPS || weight != 0.0) GymFormat.number(weight) else ""
+        val repsText = reps.toString()
+        if (weightText != prefillWeight) weightOverrides = weightOverrides + (side.code to weightText)
+        if (repsText != prefillReps) repsOverrides = repsOverrides + (side.code to repsText)
+
         onAddSet(weight, reps, side, restSeconds)
     }
 

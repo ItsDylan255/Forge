@@ -8,6 +8,7 @@ import com.example.fitnesstracker.data.local.DatabaseProvider
 import com.example.fitnesstracker.domain.calories.CalorieCalculator
 import com.example.fitnesstracker.domain.calories.CalorieGoalInput
 import com.example.fitnesstracker.domain.calories.CalorieProfile
+import com.example.fitnesstracker.domain.calories.CalorieSettings
 import com.example.fitnesstracker.domain.calories.CalorieTarget
 import com.example.fitnesstracker.domain.calories.toCalorieProfile
 import com.example.fitnesstracker.domain.calories.toEntity
@@ -39,8 +40,8 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
         profileDao.observeProfile(),
         db.weightEntryDao().getAllEntries(),
         db.weightGoalDao().observeGoal(),
-        CaloriePreferences.reductionFlow(application)
-    ) { entity, entries, goal, reduction ->
+        CaloriePreferences.settingsFlow(application)
+    ) { entity, entries, goal, settings ->
         val p = entity?.toCalorieProfile()
         val current = entries.lastOrNull()?.weightKg
         if (p == null || current == null) {
@@ -49,14 +50,14 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
             val input = goal?.let {
                 CalorieGoalInput(it.startWeightKg, it.targetWeightKg, it.targetDateEpochDay)
             }
-            CalorieCalculator.calculate(p, current, input, LocalDate.now().toEpochDay(), reduction)
+            CalorieCalculator.calculate(p, current, input, LocalDate.now().toEpochDay(), settings)
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    /** Fester Abzug vom berechneten Verbrauch (kcal). */
-    val reduction: StateFlow<Int> = CaloriePreferences.reductionFlow(application)
+    /** Einstellungen zur Berechnung (Abzug, maximales Defizit, Automatik, manuelles Defizit). */
+    val settings: StateFlow<CalorieSettings> = CaloriePreferences.settingsFlow(application)
 
-    fun setReduction(kcal: Int) = CaloriePreferences.setReduction(getApplication(), kcal)
+    fun saveSettings(value: CalorieSettings) = CaloriePreferences.setSettings(getApplication(), value)
 
     /** Speichert das Profil und erhält dabei das Erstellungsdatum. */
     fun saveProfile(profile: CalorieProfile) {

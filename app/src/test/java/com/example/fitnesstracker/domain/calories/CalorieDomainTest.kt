@@ -164,4 +164,45 @@ class CalorieDomainTest {
         assertTrue(CalorieInputParser.parseSplit("30", "40", "20") is CalorieParse.Error)
         assertTrue(CalorieInputParser.parseSplit("x", "40", "30") is CalorieParse.Error)
     }
+
+    // ---------- Manuelles Defizit und maximales Defizit ----------
+    // 85 kg: BMR 1830, TDEE 2836,5
+
+    @Test fun fixedDeficitWithoutGoal() {
+        val r = CalorieCalculator.calculate(male, 85.0, null, 0, CalorieSettings(mode = DeficitMode.FIXED_KCAL, fixedDeficitKcal = 500))
+        assertEquals(CalorieNote.MANUAL, r.note)
+        assertEquals(CalorieDirection.LOSE, r.direction)
+        assertEquals(500, r.appliedDeltaKcal)
+    }
+
+    @Test fun fixedDeficitIsCappedByMaxDeficit() {
+        val s = CalorieSettings(maxDeficitKcal = 700, mode = DeficitMode.FIXED_KCAL, fixedDeficitKcal = 1500)
+        val r = CalorieCalculator.calculate(male, 85.0, null, 0, s)
+        assertEquals(CalorieNote.MANUAL_CAPPED, r.note)
+        assertEquals(700, r.appliedDeltaKcal)
+    }
+
+    @Test fun percentPerWeek() {
+        // 1 % von 85 kg = 0,85 kg pro Woche = 935 kcal pro Tag
+        val s = CalorieSettings(maxDeficitKcal = 1000, mode = DeficitMode.PERCENT_PER_WEEK, percentPerWeek = 1.0)
+        val g = CalorieGoalInput(90.0, 80.0, null)
+        val r = CalorieCalculator.calculate(male, 85.0, g, 0, s)
+        assertEquals(CalorieNote.MANUAL, r.note)
+        assertEquals(935, r.appliedDeltaKcal)
+        // 5 kg * 7700 / 935 = 41,2 -> Tag 42
+        assertEquals(42L, r.estimatedEpochDay)
+    }
+
+    @Test fun manualStopsWhenGoalReached() {
+        val g = CalorieGoalInput(90.0, 80.0, null)
+        val r = CalorieCalculator.calculate(male, 79.0, g, 0, CalorieSettings(mode = DeficitMode.FIXED_KCAL))
+        assertEquals(CalorieNote.REACHED, r.note)
+    }
+
+    @Test fun autoUsesCustomMaxDeficit() {
+        val g = CalorieGoalInput(90.0, 80.0, 100)
+        val r = CalorieCalculator.calculate(male, 85.0, g, 0, CalorieSettings(maxDeficitKcal = 300))
+        assertEquals(CalorieNote.TOO_TIGHT, r.note)
+        assertEquals(300, r.appliedDeltaKcal)
+    }
 }

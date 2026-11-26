@@ -35,7 +35,22 @@ internal fun calorieNoteText(t: CalorieTarget): String? = when (t.note) {
     CalorieNote.DATE_PASSED -> tr("Zieldatum ist vorbei: Erhaltungsbedarf.", "Target date has passed: maintenance calories.")
     CalorieNote.TOO_TIGHT -> tooTightText(t)
     CalorieNote.REACHED -> tr("Gewichtsziel erreicht: Erhaltungsbedarf.", "Weight goal reached: maintenance calories.")
+    CalorieNote.MANUAL, CalorieNote.MANUAL_CAPPED -> manualText(t)
     CalorieNote.NONE -> null
+}
+
+/** Automatik aus: nennt das eingestellte Defizit bzw. Plus, ob es begrenzt wurde, und wann das Ziel erreicht wird. */
+private fun manualText(t: CalorieTarget): String {
+    val what = if (t.direction == CalorieDirection.GAIN) tr("Überschuss", "surplus") else tr("Defizit", "deficit")
+    val base = if (t.note == CalorieNote.MANUAL_CAPPED) {
+        tr("Manuelles $what, auf ${kcalText(t.appliedDeltaKcal)} begrenzt.", "Manual $what, capped at ${kcalText(t.appliedDeltaKcal)}.")
+    } else {
+        tr("Manuelles $what: ${kcalText(t.appliedDeltaKcal)} pro Tag.", "Manual $what: ${kcalText(t.appliedDeltaKcal)} per day.")
+    }
+    val eta = t.estimatedEpochDay?.let {
+        tr(" Zielgewicht voraussichtlich am ${WeightFormat.date(it)}.", " Goal weight expected on ${WeightFormat.date(it)}.")
+    } ?: ""
+    return base + eta
 }
 
 /**

@@ -21,8 +21,13 @@ data class WeightChartSlice(
     val visible: List<WeightMeasurement>,
     val line: List<WeightMeasurement>,
     val startDay: Long,
-    val endDay: Long
+    val endDay: Long,
+    /** Gleitender 7-Tage-Durchschnitt pro Messtag (inkl. je einem Punkt außerhalb des Fensters). */
+    val trend: List<TrendPoint> = emptyList()
 )
+
+/** Ein Punkt der Durchschnittslinie. */
+data class TrendPoint(val dateEpochDay: Long, val weightKg: Double)
 
 object WeightChartData {
 
@@ -51,13 +56,47 @@ object WeightChartData {
         val sorted = measurements.sortedBy { it.dateEpochDay }
         if (sorted.isEmpty()) return null
 
+        val trend = movingAverage(sorted)
+
         val days = range.days ?: return WeightChartSlice(
-            sorted, sorted, sorted.first().dateEpochDay, sorted.last().dateEpochDay
+            sorted, sorted, sorted.first().dateEpochDay, sorted.last().dateEpochDay, trend
         )
         val start = endDay - days
         val visible = sorted.filter { it.dateEpochDay in start..endDay }
         val before = sorted.lastOrNull { it.dateEpochDay < start }
         val after = sorted.firstOrNull { it.dateEpochDay > endDay }
-        return WeightChartSlice(visible, listOfNotNull(before) + visible + listOfNotNull(after), start, endDay)
+        val trendVisible = trend.filter { it.dateEpochDay in start..endDay }
+        val trendBefore = trend.lastOrNull { it.dateEpochDay < start }
+        val trendAfter = trend.firstOrNull { it.dateEpochDay > endDay }
+        return WeightChartSlice(
+            visible, listOfNotNull(before) + visible + listOfNotNull(after), start, endDay,
+            listOfNotNull(trendBefore) + trendVisible + listOfNotNull(trendAfter)
+        )
+    }
+
+    /** Länge des gleitenden Durchschnitts in Tagen. */
+    const val TREND_DAYS = 7
+
+    /**
+     * Gleitender Durchschnitt: Für jeden Messtag der Mittelwert aller Messungen der letzten
+     * [TREND_DAYS] Tage (inklusive dieses Tages). Mehrere Messungen an einem Tag zählen einzeln.
+     */
+    fun movingAverage(measurements: List<WeightMeasurement>, windowDays: Int = TREND_DAYS): List<TrendPoint> {
+        val sorted = measurements.sortedBy { it.dateEpochDay }
+        val days = sorted.map { it.dateEpochDay }.distinct()
+        var from = 0
+        var sum = 0.0
+        var to = 0
+        return days.map { day ->
+            while (to < sorted.size && sorted[to].dateEpochDay <= day) {
+                sum += sorted[to].weightKg
+                to++
+            }
+            while (sorted[from].dateEpochDay <= day - windowDays) {
+                sum -= sorted[from].weightKg
+                from++
+            }
+            TrendPoint(day, sum / (to - from))
+        }
     }
 }

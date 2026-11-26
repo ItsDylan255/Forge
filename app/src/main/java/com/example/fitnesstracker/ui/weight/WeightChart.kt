@@ -45,7 +45,8 @@ import kotlin.math.roundToInt
  *
  * - Y-Achse mit "runden" Schritten und gepunkteten Hilfslinien
  * - X-Achse zeitlich korrekt über das ganze Fenster des Ausschnitts (Abstand der Punkte = Abstand der Tage)
- * - Die Linie läuft bis zum Rand weiter, wenn es davor oder danach Messungen gibt
+ * - Dicke durchgezogene Linie = gleitender 7-Tage-Durchschnitt, dünne Linie verbindet die Messungen
+ * - Beide Linien laufen bis zum Rand weiter, wenn es davor oder danach Messungen gibt
  * - Hohle Punkte mit Wert-Label (nur mit [showPoints])
  * - Zielgewicht als gestrichelte Linie
  * - Tippen auf einen Punkt meldet die zugehörige Messung über [onPointClick]
@@ -184,12 +185,34 @@ fun WeightChart(
             )
         }
 
-        // ---------- Linie durch die Messpunkte (inkl. Nachbarn außerhalb, am Rand abgeschnitten) ----------
+        // ---------- Dünne Linie durch die Messpunkte (inkl. Nachbarn außerhalb, am Rand abgeschnitten) ----------
         if (line.size >= 2) {
             val path = Path().apply {
                 moveTo(g.xForDay(line[0].dateEpochDay), g.yFor(line[0].weightKg.toFloat()))
                 for (i in 1 until line.size) {
                     lineTo(g.xForDay(line[i].dateEpochDay), g.yFor(line[i].weightKg.toFloat()))
+                }
+            }
+            clipRect(left = g.chartLeft, top = 0f, right = g.chartRight, bottom = g.chartBottom) {
+                drawPath(
+                    path = path,
+                    color = lineColor.copy(alpha = 0.35f),
+                    style = Stroke(
+                        width = 1.5.dp.toPx(),
+                        cap = StrokeCap.Round,
+                        join = StrokeJoin.Round
+                    )
+                )
+            }
+        }
+
+        // ---------- Durchgezogene Linie: gleitender 7-Tage-Durchschnitt ----------
+        val trend = slice.trend
+        if (trend.size >= 2) {
+            val path = Path().apply {
+                moveTo(g.xForDay(trend[0].dateEpochDay), g.yFor(trend[0].weightKg.toFloat()))
+                for (i in 1 until trend.size) {
+                    lineTo(g.xForDay(trend[i].dateEpochDay), g.yFor(trend[i].weightKg.toFloat()))
                 }
             }
             clipRect(left = g.chartLeft, top = 0f, right = g.chartRight, bottom = g.chartBottom) {

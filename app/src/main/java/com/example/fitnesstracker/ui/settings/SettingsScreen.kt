@@ -107,7 +107,7 @@ fun SettingsScreen(
 ) {
     val profile by calorieViewModel.profile.collectAsStateWithLifecycle()
     val target by calorieViewModel.target.collectAsStateWithLifecycle()
-    val reduction by calorieViewModel.reduction.collectAsStateWithLifecycle()
+    val calorieSettings by calorieViewModel.settings.collectAsStateWithLifecycle()
 
     var showProfile by rememberSaveable { mutableStateOf(false) }
 
@@ -166,8 +166,15 @@ fun SettingsScreen(
         GroupLabel(tr("Berechnung", "Calculation"))
 
         CalorieReductionCard(
-            reduction = reduction,
-            onSave = { calorieViewModel.setReduction(it) }
+            reduction = calorieSettings.reductionKcal,
+            onSave = { calorieViewModel.saveSettings(calorieSettings.copy(reductionKcal = it)) }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        DeficitSettingsCard(
+            settings = calorieSettings,
+            onSave = { calorieViewModel.saveSettings(it) }
         )
 
         Spacer(modifier = Modifier.height(12.dp))

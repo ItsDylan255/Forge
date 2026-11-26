@@ -115,7 +115,7 @@ object LiveSync {
         val db = DatabaseProvider.getDatabase(app)
         val stepPrefs = StepPreferences(app)
 
-        combine(L10n.englishFlow, CaloriePreferences.reductionFlow(app)) { _, r -> r }.flatMapLatest { reduction ->
+        combine(L10n.englishFlow, CaloriePreferences.settingsFlow(app)) { _, s -> s }.flatMapLatest { settings ->
             combine(
                 db.stepEntryDao().observeAll(),
                 db.weightEntryDao().getAllEntries(),
@@ -130,7 +130,7 @@ object LiveSync {
                 val target = profile?.toCalorieProfile()?.let { p ->
                     latestWeight?.let { current ->
                         val input = goal?.let { CalorieGoalInput(it.startWeightKg, it.targetWeightKg, it.targetDateEpochDay) }
-                        CalorieCalculator.calculate(p, current, input, today, reduction)
+                        CalorieCalculator.calculate(p, current, input, today, settings)
                     }
                 }
 

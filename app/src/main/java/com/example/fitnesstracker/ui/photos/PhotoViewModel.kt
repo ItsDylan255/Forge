@@ -115,7 +115,7 @@ class PhotoViewModel(application: Application) : AndroidViewModel(application) {
         val kcalTarget = profile?.toCalorieProfile()?.let { p ->
             latestWeight?.let { current ->
                 val input = goal?.let { CalorieGoalInput(it.startWeightKg, it.targetWeightKg, it.targetDateEpochDay) }
-                CalorieCalculator.calculate(p, current, input, today, CaloriePreferences.getReduction(getApplication())).targetKcal
+                CalorieCalculator.calculate(p, current, input, today, CaloriePreferences.getSettings(getApplication())).targetKcal
             }
         }
 

@@ -37,7 +37,27 @@ enum class CalorieDirection { LOSE, MAINTAIN, GAIN }
  * Hinweis zum Ergebnis. TOO_TIGHT = das Zieldatum ist mit dem erlaubten Defizit bzw. Überschuss
  * nicht zu schaffen, das Tagesziel wurde auf die Grenze gesetzt.
  */
-enum class CalorieNote { NONE, NO_GOAL, NO_DATE, DATE_PASSED, TOO_TIGHT, REACHED }
+enum class CalorieNote { NONE, NO_GOAL, NO_DATE, DATE_PASSED, TOO_TIGHT, REACHED, MANUAL, MANUAL_CAPPED }
+
+/**
+ * Wie das Defizit (bzw. Plus) bestimmt wird.
+ * AUTO = aus Zielgewicht und Zieldatum, passt sich mit jedem Gewichtseintrag an.
+ * FIXED_KCAL = feste Zahl pro Tag. PERCENT_PER_WEEK = Anteil des aktuellen Gewichts pro Woche.
+ */
+enum class DeficitMode { AUTO, FIXED_KCAL, PERCENT_PER_WEEK }
+
+/** Einstellungen für die Berechnung des Tagesziels. */
+data class CalorieSettings(
+    /** Fester Abzug vom berechneten Gesamtumsatz in kcal (0 = keiner). */
+    val reductionKcal: Int = 0,
+    /** Größtes erlaubtes Defizit in kcal pro Tag. null = Standard (25 % des Gesamtumsatzes, höchstens 1.000 kcal). */
+    val maxDeficitKcal: Int? = null,
+    val mode: DeficitMode = DeficitMode.AUTO,
+    /** Defizit in kcal pro Tag für [DeficitMode.FIXED_KCAL]. */
+    val fixedDeficitKcal: Int = 500,
+    /** Prozent des aktuellen Gewichts pro Woche für [DeficitMode.PERCENT_PER_WEEK]. */
+    val percentPerWeek: Double = 0.5
+)
 
 /** Makros in Gramm. */
 data class MacroGrams(val proteinG: Int, val carbsG: Int, val fatG: Int)
